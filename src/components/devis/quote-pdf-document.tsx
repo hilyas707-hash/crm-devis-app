@@ -149,7 +149,7 @@ function makeStyles(tpl: QuoteTemplate) {
   });
 }
 
-export function QuotePDFDocument({ data, template }: { data: QuotePDFData; template: QuoteTemplate }) {
+export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: QuotePDFData; template: QuoteTemplate; docType?: string }) {
   const s = makeStyles(template);
   const boldFont =
     template.font === "Times-Roman"
@@ -163,7 +163,7 @@ export function QuotePDFDocument({ data, template }: { data: QuotePDFData; templ
     `${data.company.name}${data.company.vatNumber ? " \u2014 TVA: " + data.company.vatNumber : ""}`;
 
   return (
-    <Document title={`Devis ${data.number}`} author={data.company.name}>
+    <Document title={`${docType} ${data.number}`} author={data.company.name}>
       <Page size="A4" style={s.page}>
 
         {/* Header */}
@@ -182,7 +182,7 @@ export function QuotePDFDocument({ data, template }: { data: QuotePDFData; templ
             {data.company.vatNumber && <Text style={s.companyInfo}>TVA : {data.company.vatNumber}</Text>}
           </View>
           <View style={{ alignItems: "flex-end" }}>
-            <Text style={s.docTitle}>DEVIS</Text>
+            <Text style={s.docTitle}>{docType}</Text>
             <Text style={s.docNumber}>{data.number}</Text>
             {data.title && <Text style={s.docSub}>{data.title}</Text>}
             <View style={s.badge}>
@@ -288,7 +288,7 @@ export function QuotePDFDocument({ data, template }: { data: QuotePDFData; templ
         {/* Footer */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>{footerText}</Text>
-          <Text style={s.footerText}>Devis {data.number}</Text>
+          <Text style={s.footerText}>{docType} {data.number}</Text>
           <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`} />
         </View>
       </Page>

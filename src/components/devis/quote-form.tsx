@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Trash2, Plus, Loader2, LayoutTemplate, Star, Check } from "lucide-react";
+import { Trash2, Plus, Loader2, LayoutTemplate, Star, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
+import { PRESET_CONDITIONS } from "@/lib/quote-conditions";
 import Link from "next/link";
 
 interface Client { id: string; name: string }
@@ -66,12 +67,17 @@ export function QuoteForm({ clients, products, templates = [], action, defaultVa
       ? (templates.find(t => t.id === defaultValues.templateId) ?? defaultTpl)
       : defaultTpl
   );
+  const [conditions, setConditions] = useState(
+    defaultValues?.conditions ||
+    (defaultTpl?.autoConditions ? (defaultTpl.conditions ?? "") : "")
+  );
   const [items, setItems] = useState<Item[]>(
     defaultValues?.items || [{ description: "", quantity: 1, unitPrice: 0, vatRate: 21, discount: 0, sortOrder: 0 }]
   );
 
   function applyTemplate(tpl: TemplateSummary) {
     setSelectedTemplate(tpl);
+    if (tpl.autoConditions && tpl.conditions) setConditions(tpl.conditions);
   }
 
   const addItem = () => {
@@ -379,16 +385,28 @@ export function QuoteForm({ clients, products, templates = [], action, defaultVa
             <Textarea id="notes" name="notes" defaultValue={defaultValues?.notes || ""} placeholder="Notes visibles sur le devis..." rows={3} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="conditions">Conditions générales</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="conditions">Conditions générales</Label>
+              <Select onValueChange={(v) => { if (v !== "__none__") setConditions(v); }}>
+                <SelectTrigger className="w-56 h-8 text-xs">
+                  <SelectValue placeholder="Choisir un modèle…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRESET_CONDITIONS.map((p) => (
+                    <SelectItem key={p.label} value={p.value} className="text-xs">
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Textarea
               id="conditions"
               name="conditions"
-              defaultValue={
-                defaultValues?.conditions ||
-                (selectedTemplate?.autoConditions ? (selectedTemplate.conditions ?? "") : "")
-              }
+              value={conditions}
+              onChange={(e) => setConditions(e.target.value)}
               placeholder="Conditions de paiement, délais..."
-              rows={4}
+              rows={5}
             />
           </div>
         </CardContent>

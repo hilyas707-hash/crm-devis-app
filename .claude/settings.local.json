@@ -28,7 +28,8 @@
       "Bash(DATABASE_URL=\"postgresql://dummy:dummy@localhost/dummy\" npx next build)",
       "Bash(npx tsx *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
