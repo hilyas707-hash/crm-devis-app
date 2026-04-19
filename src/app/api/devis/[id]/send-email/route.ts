@@ -88,19 +88,25 @@ export async function POST(
     React.createElement(QuotePDFDocument, { data, template }) as any
   );
 
-  // SMTP config from env — works with Gmail, Outlook, Mailtrap, etc.
+  const smtpUser = quote.company.smtpUser || process.env.SMTP_USER;
+  const smtpPass = quote.company.smtpPass || process.env.SMTP_PASS;
+  const smtpHost = quote.company.smtpHost || process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = quote.company.smtpPort || Number(process.env.SMTP_PORT || 587);
+  const smtpSecure = quote.company.smtpSecure ?? (process.env.SMTP_SECURE === "true");
+
+  if (!smtpUser || !smtpPass) {
+    return NextResponse.json({ error: "Configuration SMTP manquante. Allez dans Paramètres → Email pour configurer votre adresse email." }, { status: 400 });
+  }
+
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    auth: { user: smtpUser, pass: smtpPass },
   });
 
-  const fromName = quote.company.name;
-  const fromEmail = process.env.SMTP_USER || quote.company.email || "noreply@example.com";
+  const fromName = quote.company.smtpFrom || quote.company.name;
+  const fromEmail = smtpUser;
 
   const emailBody = `
 <!DOCTYPE html>

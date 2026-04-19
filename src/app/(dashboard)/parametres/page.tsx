@@ -9,15 +9,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { updateCompany } from "@/actions/company";
 import { QuoteTemplateManager } from "@/components/settings/quote-template-manager";
+import { SmtpConfig } from "@/components/settings/smtp-config";
 import { redirect } from "next/navigation";
-import { Building2, LayoutTemplate } from "lucide-react";
+import { Building2, LayoutTemplate, Mail } from "lucide-react";
 
 export default async function ParametresPage() {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId;
 
   const [company, templates] = await Promise.all([
-    prisma.company.findUnique({ where: { id: companyId } }),
+    prisma.company.findUnique({ where: { id: companyId }, select: {
+      id: true, name: true, email: true, phone: true, address: true, city: true,
+      postalCode: true, country: true, vatNumber: true, website: true, iban: true, bic: true,
+      quotePrefix: true, invoicePrefix: true, nextQuoteNumber: true, nextInvoiceNumber: true,
+      smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true,
+    }}),
     prisma.quoteTemplate.findMany({
       where: { companyId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
@@ -39,6 +45,10 @@ export default async function ParametresPage() {
             <TabsTrigger value="editeur">
               <LayoutTemplate className="h-4 w-4 mr-1" />
               Éditeur de devis
+            </TabsTrigger>
+            <TabsTrigger value="email">
+              <Mail className="h-4 w-4 mr-1" />
+              Email
             </TabsTrigger>
           </TabsList>
 
@@ -133,6 +143,18 @@ export default async function ParametresPage() {
 
               <Button type="submit">Enregistrer les paramètres</Button>
             </form>
+          </TabsContent>
+
+          {/* ── Onglet Email ── */}
+          <TabsContent value="email">
+            <SmtpConfig initial={{
+              smtpHost: company.smtpHost,
+              smtpPort: company.smtpPort,
+              smtpUser: company.smtpUser,
+              smtpPass: company.smtpPass,
+              smtpSecure: company.smtpSecure,
+              smtpFrom: company.smtpFrom,
+            }} />
           </TabsContent>
 
           {/* ── Onglet Éditeur de devis ── */}

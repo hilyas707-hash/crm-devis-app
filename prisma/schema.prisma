@@ -95,6 +95,13 @@ model Company {
   prefAutoConditions Boolean  @default(true)
   prefCurrency      String    @default("EUR")
   prefLanguage      String    @default("fr-BE")
+  // Configuration SMTP
+  smtpHost          String?
+  smtpPort          Int?
+  smtpUser          String?
+  smtpPass          String?
+  smtpSecure        Boolean   @default(false)
+  smtpFrom          String?
   users             User[]
   clients           Client[]
   products          Product[]
