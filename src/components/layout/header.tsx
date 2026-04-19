@@ -19,12 +19,12 @@ export function Header({ title }: HeaderProps) {
     : "??";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-4 md:px-6">
+    <header className="flex h-16 items-center justify-between border-b bg-white/80 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
       {/* Mobile: left padding for hamburger button */}
       <div className="md:hidden w-10" />
 
       {title && (
-        <h1 className="text-base md:text-xl font-semibold text-gray-900 truncate flex-1 text-center md:text-left">
+        <h1 className="text-base md:text-xl font-bold text-[var(--foreground)] truncate flex-1 text-center md:text-left">
           {title}
         </h1>
       )}
