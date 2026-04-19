@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String     @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String     @default("USER")
+  companyId     String?
+  company       Company?   @relation(fields: [companyId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+  activities    Activity[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Company {
+  id                String    @id @default(cuid())
+  name              String
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  postalCode        String?
+  country           String    @default("Belgique")
+  vatNumber         String?
+  logo              String?
+  website           String?
+  iban              String?
+  bic               String?
+  quotePrefix       String    @default("DEV")
+  invoicePrefix     String    @default("FAC")
+  nextQuoteNumber   Int       @default(1)
+  nextInvoiceNumber Int       @default(1)
+  // Template PDF
+  tplColor          String    @default("#2563eb")
+  tplFont           String    @default("Helvetica")
+  tplLogo           String?
+  tplFooter         String?
+  tplConditions     String?
+  tplShowBank       Boolean   @default(true)
+  // Préférences multi-choix
+  prefVatRates      String    @default("6,12,21")
+  prefPaymentMethods String   @default("VIREMENT,CHEQUE,CARTE,ESPECES")
+  prefUnits         String    @default("heure,jour,unité,forfait,m²,kg,litre,mois")
+  prefCategories    String    @default("Services,Produits,Logiciels,Matériaux,Autres")
+  prefValidityDays  Int       @default(30)
+  prefShowInternalRef Boolean @default(false)
+  prefShowClientRef Boolean   @default(false)
+  prefShowDelivery  Boolean   @default(false)
+  prefAutoConditions Boolean  @default(true)
+  prefCurrency      String    @default("EUR")
+  prefLanguage      String    @default("fr-BE")
+  users             User[]
+  clients           Client[]
+  products          Product[]
+  quotes            Quote[]
+  invoices          Invoice[]
+  quoteTemplates    QuoteTemplate[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Client {
+  id         String     @id @default(cuid())
+  type       String     @default("COMPANY")
+  name       String
+  email      String?
+  phone      String?
+  mobile     String?
+  address    String?
+  city       String?
+  postalCode String?
+  country    String     @default("Belgique")
+  vatNumber  String?
+  notes      String?
+  status     String     @default("PROSPECT")
+  companyId  String
+  company    Company    @relation(fields: [companyId], references: [id])
+  contacts   Contact[]
+  quotes     Quote[]
+  invoices   Invoice[]
+  deals      Deal[]
+  activities Activity[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  mobile    String?
+  position  String?
+  notes     String?
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id           String        @id @default(cuid())
+  reference    String?
+  name         String
+  description  String?
+  unitPrice    Float
+  unit         String        @default("unité")
+  vatRate      Float         @default(21)
+  category     String?
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  quoteItems   QuoteItem[]
+  invoiceItems InvoiceItem[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model QuoteTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  isDefault      Boolean  @default(false)
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Visuel
+  color          String   @default("#2563eb")
+  font           String   @default("Helvetica")
+  logo           String?
+  footer         String?
+  showBank       Boolean  @default(true)
+  // Contenu
+  conditions     String?
+  autoConditions Boolean  @default(true)
+  // Préférences
+  vatRates       String   @default("6,12,21")
+  paymentMethods String   @default("VIREMENT,CHEQUE,CARTE,ESPECES")
+  units          String   @default("heure,jour,unité,forfait,m²,kg,litre,mois")
+  categories     String   @default("Services,Produits,Logiciels,Matériaux,Autres")
+  validityDays   Int      @default(30)
+  showInternalRef Boolean @default(false)
+  showClientRef  Boolean  @default(false)
+  showDelivery   Boolean  @default(false)
+  currency       String   @default("EUR")
+  language       String   @default("fr-BE")
+  quotes         Quote[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Quote {
+  id           String         @id @default(cuid())
+  number       String         @unique
+  status       String         @default("DRAFT")
+  title        String?
+  notes        String?
+  conditions   String?
+  issueDate    DateTime       @default(now())
+  validUntil   DateTime?
+  subtotal     Float          @default(0)
+  vatAmount    Float          @default(0)
+  total        Float          @default(0)
+  discount     Float          @default(0)
+  discountType String         @default("PERCENT")
+  clientId     String
+  client       Client         @relation(fields: [clientId], references: [id])
+  companyId    String
+  company      Company        @relation(fields: [companyId], references: [id])
+  templateId   String?
+  template     QuoteTemplate? @relation(fields: [templateId], references: [id])
+  items        QuoteItem[]
+  invoices     Invoice[]
+  activities   Activity[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model QuoteItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float
+  vatRate     Float    @default(21)
+  discount    Float    @default(0)
+  total       Float
+  sortOrder   Int      @default(0)
+  quoteId     String
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  number       String        @unique
+  status       String        @default("DRAFT")
+  title        String?
+  notes        String?
+  conditions   String?
+  issueDate    DateTime      @default(now())
+  dueDate      DateTime?
+  subtotal     Float         @default(0)
+  vatAmount    Float         @default(0)
+  total        Float         @default(0)
+  discount     Float         @default(0)
+  discountType String        @default("PERCENT")
+  paidAmount   Float         @default(0)
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id])
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  quoteId      String?
+  quote        Quote?        @relation(fields: [quoteId], references: [id])
+  items        InvoiceItem[]
+  payments     Payment[]
+  activities   Activity[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float
+  vatRate     Float    @default(21)
+  discount    Float    @default(0)
+  total       Float
+  sortOrder   Int      @default(0)
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Float
+  method    String   @default("VIREMENT")
+  reference String?
+  date      DateTime @default(now())
+  notes     String?
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Deal {
+  id          String     @id @default(cuid())
+  title       String
+  value       Float      @default(0)
+  stage       String     @default("PROSPECTION")
+  probability Int        @default(20)
+  expectedAt  DateTime?
+  notes       String?
+  clientId    String
+  client      Client     @relation(fields: [clientId], references: [id])
+  activities  Activity[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Activity {
+  id          String    @id @default(cuid())
+  type        String
+  title       String
+  description String?
+  dueDate     DateTime?
+  done        Boolean   @default(false)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  clientId    String?
+  client      Client?   @relation(fields: [clientId], references: [id])
+  quoteId     String?
+  quote       Quote?    @relation(fields: [quoteId], references: [id])
+  invoiceId   String?
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

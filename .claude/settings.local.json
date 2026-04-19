@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /c/Users/hilya/Documents/crm-devis-app/src/lib/validations)",
+      "Bash(mkdir -p /c/Users/hilya/Documents/crm-devis-app/src/actions)",
+      "Bash(mkdir -p /c/Users/hilya/Documents/crm-devis-app/src/components/ui)",
+      "Bash(mkdir -p /c/Users/hilya/Documents/crm-devis-app/src/components/layout)",
+      "Bash(mkdir -p /c/Users/hilya/Documents/crm-devis-app/src/components/clients)",
+      "Read(//c/Users/hilya/.claude/projects/C--Users-hilya-Documents-crm-devis-app//**)",
+      "Read(//c/Users/hilya/.claude/projects/C--Users-hilya-Documents-m-build-360//**)",
+      "Bash(npx prisma *)",
+      "Bash(npm install *)",
+      "Bash(npx ts-node *)",
+      "Bash(node *)",
+      "Bash(npx next *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(taskkill /PID 33604 /F)",
+      "Bash(curl -s http://localhost:3000/login)",
+      "Bash(curl -s -I http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(git -C /c/Users/hilya/Documents/crm-devis-app log --oneline -3)",
+      "Bash(git -C /c/Users/hilya/Documents/crm-devis-app remote -v)",
+      "Bash(npm uninstall *)",
+      "Bash(DATABASE_URL=\"postgresql://dummy:dummy@localhost/dummy\" npx next build)",
+      "Bash(npx tsx *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
