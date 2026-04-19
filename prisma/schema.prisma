@@ -20,6 +20,13 @@ model User {
   accounts      Account[]
   sessions      Session[]
   activities    Activity[]
+  // Email personnel de l'utilisateur
+  smtpHost      String?
+  smtpPort      Int?
+  smtpUser      String?
+  smtpPass      String?
+  smtpSecure    Boolean    @default(false)
+  smtpFrom      String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }

@@ -16,18 +16,21 @@ import { Building2, LayoutTemplate, Mail } from "lucide-react";
 export default async function ParametresPage() {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId;
+  const userId = (session?.user as any)?.id;
 
-  const [company, templates] = await Promise.all([
+  const [company, templates, currentUser] = await Promise.all([
     prisma.company.findUnique({ where: { id: companyId }, select: {
       id: true, name: true, email: true, phone: true, address: true, city: true,
       postalCode: true, country: true, vatNumber: true, website: true, iban: true, bic: true,
       quotePrefix: true, invoicePrefix: true, nextQuoteNumber: true, nextInvoiceNumber: true,
-      smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true,
     }}),
     prisma.quoteTemplate.findMany({
       where: { companyId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     }),
+    prisma.user.findUnique({ where: { id: userId }, select: {
+      smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true,
+    }}),
   ]);
 
   if (!company) redirect("/login");
@@ -148,12 +151,12 @@ export default async function ParametresPage() {
           {/* ── Onglet Email ── */}
           <TabsContent value="email">
             <SmtpConfig initial={{
-              smtpHost: company.smtpHost,
-              smtpPort: company.smtpPort,
-              smtpUser: company.smtpUser,
-              smtpPass: company.smtpPass,
-              smtpSecure: company.smtpSecure,
-              smtpFrom: company.smtpFrom,
+              smtpHost: currentUser?.smtpHost ?? null,
+              smtpPort: currentUser?.smtpPort ?? null,
+              smtpUser: currentUser?.smtpUser ?? null,
+              smtpPass: currentUser?.smtpPass ?? null,
+              smtpSecure: currentUser?.smtpSecure ?? false,
+              smtpFrom: currentUser?.smtpFrom ?? null,
             }} />
           </TabsContent>
 

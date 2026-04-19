@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { updateSmtpConfig } from "@/actions/company";
+import { updateUserSmtp } from "@/actions/user";
 import { Mail, Eye, EyeOff, CheckCircle, Loader2, Info } from "lucide-react";
 
 interface SmtpConfigProps {
@@ -49,7 +49,7 @@ export function SmtpConfig({ initial }: SmtpConfigProps) {
     fd.set("smtpSecure", secure ? "true" : "false");
     setSaved(false);
     startTransition(async () => {
-      await updateSmtpConfig(fd);
+      await updateUserSmtp(fd);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     });

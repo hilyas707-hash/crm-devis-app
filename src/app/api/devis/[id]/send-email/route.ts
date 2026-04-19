@@ -16,6 +16,7 @@ export async function POST(
 
   const { id } = await params;
   const companyId = (session.user as any).companyId;
+  const userId = (session.user as any).id;
   const body = await request.json();
   const { to, subject, message } = body as { to: string; subject: string; message: string };
 
@@ -23,14 +24,13 @@ export async function POST(
     return NextResponse.json({ error: "Destinataire et sujet requis" }, { status: 400 });
   }
 
-  const quote = await prisma.quote.findFirst({
-    where: { id, companyId },
-    include: {
-      client: true,
-      items: { orderBy: { sortOrder: "asc" } },
-      company: true,
-    },
-  });
+  const [quote, currentUser] = await Promise.all([
+    prisma.quote.findFirst({
+      where: { id, companyId },
+      include: { client: true, items: { orderBy: { sortOrder: "asc" } }, company: true },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true } }),
+  ]);
 
   if (!quote) return NextResponse.json({ error: "Devis introuvable" }, { status: 404 });
 
@@ -88,14 +88,15 @@ export async function POST(
     React.createElement(QuotePDFDocument, { data, template }) as any
   );
 
-  const smtpUser = quote.company.smtpUser || process.env.SMTP_USER;
-  const smtpPass = quote.company.smtpPass || process.env.SMTP_PASS;
-  const smtpHost = quote.company.smtpHost || process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = quote.company.smtpPort || Number(process.env.SMTP_PORT || 587);
-  const smtpSecure = quote.company.smtpSecure ?? (process.env.SMTP_SECURE === "true");
+  // Priorité : email utilisateur > email entreprise > variables d'env
+  const smtpUser = currentUser?.smtpUser || process.env.SMTP_USER;
+  const smtpPass = currentUser?.smtpPass || process.env.SMTP_PASS;
+  const smtpHost = currentUser?.smtpHost || process.env.SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = currentUser?.smtpPort || Number(process.env.SMTP_PORT || 587);
+  const smtpSecure = currentUser?.smtpSecure ?? (process.env.SMTP_SECURE === "true");
 
   if (!smtpUser || !smtpPass) {
-    return NextResponse.json({ error: "Configuration SMTP manquante. Allez dans Paramètres → Email pour configurer votre adresse email." }, { status: 400 });
+    return NextResponse.json({ error: "Configuration email manquante. Allez dans Paramètres → Email pour configurer votre adresse email." }, { status: 400 });
   }
 
   const transporter = nodemailer.createTransport({
@@ -105,7 +106,7 @@ export async function POST(
     auth: { user: smtpUser, pass: smtpPass },
   });
 
-  const fromName = quote.company.smtpFrom || quote.company.name;
+  const fromName = currentUser?.smtpFrom || quote.company.name;
   const fromEmail = smtpUser;
 
   const emailBody = `
