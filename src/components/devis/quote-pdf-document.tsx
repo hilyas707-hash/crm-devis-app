@@ -1,18 +1,20 @@
-import {
-  Document, Page, Text, View, Image, StyleSheet, Line, Svg,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Brouillon", SENT: "Envoyé", ACCEPTED: "Accepté",
-  REJECTED: "Refusé", INVOICED: "Facturé",
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number) {
-  return `${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f")} €`;
+  return `${n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f")} €`;
 }
 function fmtDate(d: string | Date | null | undefined) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("fr-BE", { day: "2-digit", month: "long", year: "numeric" });
+}
+function hex(color: string, alpha: number) {
+  // Converts hex + alpha 0-1 into CSS rgba string for react-pdf
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -74,191 +76,12 @@ export interface QuotePDFData {
   };
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function makeStyles(tpl: QuoteTemplate) {
-  const bold = tpl.font === "Times-Roman" ? "Times-Bold" : tpl.font === "Courier" ? "Courier-Bold" : "Helvetica-Bold";
-  const c = tpl.color;
-  const hasHeaderImg = !!tpl.headerImage;
-  const hasFooterImg = !!tpl.footerImage;
-
-  return StyleSheet.create({
-    page: {
-      fontFamily: tpl.font, fontSize: 9.5, color: "#1a2035",
-      paddingTop: hasHeaderImg ? 0 : 0,
-      paddingBottom: hasFooterImg ? 86 : 52,
-      paddingHorizontal: 0,
-      backgroundColor: "#ffffff",
-    },
-
-    // ── Bannière image (overlay) ──
-    headerBanner: { position: "relative", height: 120, marginBottom: 0 },
-    headerBannerImg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", objectFit: "cover" },
-    headerBannerDim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.42)" },
-    headerBannerContent: {
-      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-      paddingHorizontal: 36, paddingVertical: 14,
-    },
-    bannerLogo: { height: 44, maxWidth: 140, objectFit: "contain", marginBottom: 6 },
-    bannerCompanyName: { fontSize: 16, fontFamily: bold, color: "#fff" },
-    bannerInfo: { fontSize: 8, color: "rgba(255,255,255,0.82)", marginTop: 2 },
-    bannerDocType: { fontSize: 28, fontFamily: bold, color: "#fff", textAlign: "right" },
-    bannerDocRef: { fontSize: 12, color: "rgba(255,255,255,0.88)", marginTop: 2, textAlign: "right" },
-    bannerDocSub: { fontSize: 8.5, color: "rgba(255,255,255,0.70)", marginTop: 3, textAlign: "right" },
-    bannerBadge: {
-      marginTop: 7, alignSelf: "flex-end",
-      backgroundColor: "rgba(255,255,255,0.22)", color: "#fff",
-      paddingHorizontal: 10, paddingVertical: 3,
-      borderRadius: 3, fontSize: 8.5, fontFamily: bold,
-    },
-
-    // ── Entête classique (sans image) ──
-    classicHeader: {
-      flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
-      paddingHorizontal: 36, paddingTop: 32, paddingBottom: 20,
-      borderBottom: `3px solid ${c}`,
-    },
-    classicLeft: { flex: 1 },
-    classicRight: { alignItems: "flex-end" },
-    logoImg: { height: 52, maxWidth: 170, objectFit: "contain", marginBottom: 8 },
-    companyName: { fontSize: 14, fontFamily: bold, color: c, marginBottom: 3 },
-    companyInfo: { fontSize: 8, color: "#64748b", lineHeight: 1.5 },
-    docType: { fontSize: 30, fontFamily: bold, color: c, marginBottom: 4 },
-    docRef: { fontSize: 11, color: "#334155", fontFamily: bold, marginBottom: 3 },
-    docSub: { fontSize: 8.5, color: "#64748b", marginBottom: 3 },
-    statusBadge: {
-      alignSelf: "flex-end", marginTop: 4,
-      backgroundColor: c + "18", color: c,
-      paddingHorizontal: 10, paddingVertical: 3,
-      borderRadius: 3, fontSize: 8.5, fontFamily: bold,
-    },
-
-    // ── Bande méta (date, validité, réf) sous l'entête ──
-    metaBand: {
-      flexDirection: "row", gap: 0,
-      backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0",
-      paddingHorizontal: 36, paddingVertical: 9,
-    },
-    metaItem: { flex: 1, borderRight: "1px solid #e2e8f0", paddingRight: 14, marginRight: 14 },
-    metaItemLast: { flex: 1 },
-    metaLabel: { fontSize: 7.5, color: "#94a3b8", fontFamily: bold, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 },
-    metaValue: { fontSize: 9.5, color: "#1e293b", fontFamily: bold },
-
-    // ── Blocs adresses (émetteur / destinataire) ──
-    addrSection: {
-      flexDirection: "row", gap: 0,
-      paddingHorizontal: 36, paddingVertical: 18,
-      borderBottom: "1px solid #e2e8f0",
-    },
-    addrFrom: { flex: 1, paddingRight: 20 },
-    addrTo: {
-      flex: 1.2, paddingLeft: 18, paddingVertical: 10, paddingRight: 14,
-      backgroundColor: c + "08",
-      borderLeft: `3px solid ${c}`,
-      borderRadius: 2,
-    },
-    addrSectionLabel: {
-      fontSize: 7.5, fontFamily: bold, color: c,
-      textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6,
-    },
-    addrName: { fontSize: 11, fontFamily: bold, color: "#0f172a", marginBottom: 3 },
-    addrLine: { fontSize: 8.5, color: "#475569", lineHeight: 1.55 },
-
-    // ── Contenu principal ──
-    body: { paddingHorizontal: 36, paddingTop: 20 },
-
-    // ── Titre de l'offre (objet) ──
-    offerTitle: {
-      fontSize: 11, fontFamily: bold, color: "#1e293b",
-      marginBottom: 16, paddingBottom: 8,
-      borderBottom: `1px solid ${c}40`,
-    },
-
-    // ── Tableau ──
-    tableWrap: { marginBottom: 0 },
-    tableHead: {
-      flexDirection: "row",
-      backgroundColor: c,
-      borderRadius: 3,
-      paddingVertical: 7, paddingHorizontal: 6,
-      marginBottom: 0,
-    },
-    thText: { fontSize: 7.5, fontFamily: bold, color: "#fff", textTransform: "uppercase", letterSpacing: 0.3 },
-    tableRow: {
-      flexDirection: "row",
-      paddingVertical: 7, paddingHorizontal: 6,
-      borderBottom: "0.5px solid #e8edf4",
-    },
-    tableRowAlt: { backgroundColor: "#f9fbff" },
-    tdDesc: { fontSize: 9, color: "#1e293b" },
-    tdNotes: { fontSize: 7.5, color: "#64748b", fontStyle: "italic", marginTop: 2, lineHeight: 1.4 },
-    tdText: { fontSize: 9, color: "#334155" },
-    tdBold: { fontSize: 9, fontFamily: bold, color: "#0f172a" },
-
-    // Colonnes
-    cDesc: { flex: 3.2 },
-    cQty: { flex: 0.7, textAlign: "right" },
-    cUnit: { flex: 0.9, textAlign: "left", paddingLeft: 6 },
-    cPrice: { flex: 1.3, textAlign: "right" },
-    cVat: { flex: 0.75, textAlign: "right" },
-    cDisc: { flex: 0.75, textAlign: "right" },
-    cTotal: { flex: 1.4, textAlign: "right" },
-
-    // ── Totaux ──
-    totalsOuter: { flexDirection: "row", justifyContent: "flex-end", marginTop: 8, marginBottom: 0 },
-    totalsBox: { width: 220 },
-    totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3.5, paddingHorizontal: 8 },
-    totalLabel: { fontSize: 8.5, color: "#64748b" },
-    totalValue: { fontSize: 8.5, color: "#334155" },
-    totalDiscRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3.5, paddingHorizontal: 8 },
-    totalFinalBox: {
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-      backgroundColor: c, borderRadius: 4,
-      paddingVertical: 9, paddingHorizontal: 10, marginTop: 4,
-    },
-    totalFinalLabel: { fontSize: 11, fontFamily: bold, color: "#fff" },
-    totalFinalValue: { fontSize: 13, fontFamily: bold, color: "#fff" },
-
-    // ── Notes + Conditions ──
-    bottomSection: { flexDirection: "row", gap: 12, paddingHorizontal: 36, marginTop: 18 },
-    noteBox: {
-      flex: 1, backgroundColor: "#f8fafc", borderRadius: 4,
-      borderLeft: `3px solid ${c}60`, padding: 10,
-    },
-    noteLabel: { fontSize: 7.5, fontFamily: bold, color: c, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 },
-    noteText: { fontSize: 8, color: "#475569", lineHeight: 1.6 },
-
-    // ── Coordonnées bancaires ──
-    bankBox: {
-      marginHorizontal: 36, marginTop: 14,
-      flexDirection: "row", alignItems: "flex-start", gap: 20,
-      backgroundColor: c + "0d", borderRadius: 4, padding: 10,
-      border: `0.5px solid ${c}40`,
-    },
-    bankLabel: { fontSize: 7.5, fontFamily: bold, color: c, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-    bankText: { fontSize: 8.5, color: "#1e3a5f" },
-
-    // ── Footer ──
-    footer: {
-      position: "absolute",
-      bottom: hasFooterImg ? 78 : 16,
-      left: 36, right: 36,
-      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-      paddingTop: 6, borderTop: "0.5px solid #cbd5e1",
-    },
-    footerText: { fontSize: 7.5, color: "#94a3b8" },
-    footerImg: {
-      position: "absolute", bottom: 0, left: 0, right: 0,
-      width: "100%", height: 68, objectFit: "cover",
-    },
-
-    // ── Pièces jointes ──
-    attachPage: { padding: 0 },
-    attachImg: { width: "100%", height: "100%", objectFit: "contain" },
-    attachLabel: { position: "absolute", bottom: 10, left: 0, right: 0, textAlign: "center", fontSize: 8, color: "#94a3b8" },
-  });
-}
+const PAD = 40;    // page horizontal padding
+const GRAY = "#64748b";
+const DARK = "#0f172a";
+const BORDER = "#e2e8f0";
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
@@ -269,13 +92,17 @@ export function QuotePDFDocument({
   template: QuoteTemplate;
   docType?: string;
 }) {
-  const s = makeStyles(template);
-  const bold = template.font === "Times-Roman" ? "Times-Bold" : template.font === "Courier" ? "Courier-Bold" : "Helvetica-Bold";
-  const c = template.color;
+  const c = template.color || "#2563eb";
+  const font = template.font || "Helvetica";
+  const bold = font === "Times-Roman" ? "Times-Bold"
+    : font === "Courier" ? "Courier-Bold"
+    : "Helvetica-Bold";
 
-  const footerLine = template.footer || `${data.company.name}${data.company.vatNumber ? "  —  TVA : " + data.company.vatNumber : ""}`;
+  const hasHeaderImg = !!template.headerImage;
+  const hasFooterImg = !!template.footerImage;
+  const footerLine = template.footer
+    || [data.company.name, data.company.vatNumber ? `TVA ${data.company.vatNumber}` : null].filter(Boolean).join("  ·  ");
 
-  // TVA par taux pour le détail
   const vatByRate = data.items.reduce((acc, item) => {
     const ht = item.quantity * item.unitPrice * (1 - item.discount / 100);
     const k = `${item.vatRate}`;
@@ -283,192 +110,463 @@ export function QuotePDFDocument({
     return acc;
   }, {} as Record<string, number>);
   const vatEntries = Object.entries(vatByRate).filter(([, v]) => v > 0).sort(([a], [b]) => +a - +b);
-
-  const hasDiscount = data.discount > 0;
   const showDisc = data.items.some((i) => i.discount > 0);
 
   let attachmentPages: { name: string; data: string }[] = [];
   try { if (template.attachments) attachmentPages = JSON.parse(template.attachments); } catch {}
 
+  // ── Styles (computed from template) ─────────────────────────────────────────
+  const s = StyleSheet.create({
+    page: {
+      fontFamily: font,
+      fontSize: 9.5,
+      color: DARK,
+      backgroundColor: "#ffffff",
+      paddingTop: hasHeaderImg ? 0 : PAD,
+      paddingBottom: hasFooterImg ? 80 : 56,
+      paddingHorizontal: PAD,
+    },
+
+    // ── Header image (full-bleed) ──────────────────────────────────────────────
+    bannerWrap: {
+      // Negative margin to escape page padding → full bleed
+      marginHorizontal: -PAD,
+      marginTop: 0,
+      height: 136,
+      position: "relative",
+    },
+    bannerImg: {
+      position: "absolute", top: 0, left: 0,
+      width: "100%", height: "100%",
+      objectFit: "cover",
+    },
+    bannerOverlay: {
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: "rgba(0,0,0,0.46)",
+    },
+    bannerContent: {
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      paddingHorizontal: PAD, paddingVertical: 18,
+    },
+    bannerLogoImg: { height: 40, maxWidth: 130, objectFit: "contain", marginBottom: 6 },
+    bannerCompany: { fontSize: 15, fontFamily: bold, color: "#fff" },
+    bannerCompanySub: { fontSize: 8, color: "rgba(255,255,255,0.78)", marginTop: 2 },
+    bannerDocType: { fontSize: 30, fontFamily: bold, color: "#fff", textAlign: "right" },
+    bannerDocNum: { fontSize: 11, color: "rgba(255,255,255,0.92)", textAlign: "right", marginTop: 4, fontFamily: bold },
+    bannerDocSub: { fontSize: 8.5, color: "rgba(255,255,255,0.72)", textAlign: "right", marginTop: 3 },
+
+    // ── Classic header (no image) ──────────────────────────────────────────────
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      paddingBottom: 18,
+    },
+    headerLeft: { flex: 1, paddingRight: 20 },
+    headerRight: { alignItems: "flex-end" },
+    logoImg: { height: 50, maxWidth: 160, objectFit: "contain", marginBottom: 8 },
+    hCompanyName: { fontSize: 13, fontFamily: bold, color: c, marginBottom: 3 },
+    hCompanySub: { fontSize: 8, color: GRAY, lineHeight: 1.55 },
+    hDocType: { fontSize: 30, fontFamily: bold, color: c, marginBottom: 4, textAlign: "right" },
+    hDocNum: { fontSize: 11, fontFamily: bold, color: DARK, textAlign: "right", marginBottom: 2 },
+    hDocTitle: { fontSize: 8.5, color: GRAY, textAlign: "right", marginBottom: 2 },
+    hDocDate: { fontSize: 8.5, color: GRAY, textAlign: "right", lineHeight: 1.6 },
+
+    // ── Accent divider ─────────────────────────────────────────────────────────
+    divider: {
+      height: 2,
+      backgroundColor: c,
+      marginBottom: 20,
+    },
+    dividerThin: {
+      height: 1,
+      backgroundColor: BORDER,
+      marginVertical: 16,
+    },
+
+    // ── Info bar (date, validity, client ref) ──────────────────────────────────
+    infoBar: {
+      flexDirection: "row",
+      backgroundColor: "#f8fafc",
+      borderRadius: 4,
+      border: `1px solid ${BORDER}`,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      marginBottom: 18,
+    },
+    infoItem: {
+      flex: 1,
+      paddingRight: 12,
+      borderRight: `1px solid ${BORDER}`,
+      marginRight: 12,
+    },
+    infoItemLast: { flex: 1 },
+    infoLabel: { fontSize: 7, color: "#94a3b8", fontFamily: bold, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 2 },
+    infoValue: { fontSize: 9, fontFamily: bold, color: DARK },
+
+    // ── Addresses ─────────────────────────────────────────────────────────────
+    addrRow: {
+      flexDirection: "row",
+      gap: 16,
+      marginBottom: 18,
+    },
+    addrFromBox: {
+      flex: 1,
+    },
+    addrToBox: {
+      flex: 1.1,
+      borderLeft: `3px solid ${c}`,
+      backgroundColor: hex(c, 0.04),
+      paddingLeft: 12,
+      paddingVertical: 10,
+      paddingRight: 10,
+      borderRadius: 2,
+    },
+    addrLabel: {
+      fontSize: 7.5, fontFamily: bold, color: c,
+      textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6,
+    },
+    addrName: { fontSize: 10.5, fontFamily: bold, color: DARK, marginBottom: 3 },
+    addrLine: { fontSize: 8.5, color: "#475569", lineHeight: 1.6 },
+
+    // ── Offer title ───────────────────────────────────────────────────────────
+    offerTitle: {
+      fontSize: 10.5,
+      fontFamily: bold,
+      color: DARK,
+      marginBottom: 14,
+      paddingBottom: 8,
+      borderBottom: `1px solid ${hex(c, 0.25)}`,
+    },
+
+    // ── Table ─────────────────────────────────────────────────────────────────
+    thead: {
+      flexDirection: "row",
+      backgroundColor: c,
+      borderRadius: 3,
+      paddingVertical: 7,
+      paddingHorizontal: 8,
+    },
+    th: {
+      fontSize: 7.5, fontFamily: bold, color: "#fff",
+      textTransform: "uppercase", letterSpacing: 0.4,
+    },
+    trow: {
+      flexDirection: "row",
+      paddingVertical: 7,
+      paddingHorizontal: 8,
+      borderBottom: `1px solid #f0f4f8`,
+    },
+    trowAlt: { backgroundColor: "#f9fbff" },
+    tdMain: { fontSize: 9, color: DARK },
+    tdSub: { fontSize: 7.5, color: GRAY, fontStyle: "italic", marginTop: 2, lineHeight: 1.4 },
+    tdNum: { fontSize: 9, color: "#334155" },
+    tdBold: { fontSize: 9, fontFamily: bold, color: DARK },
+
+    // col widths
+    cDesc:  { flex: 3.4 },
+    cQty:   { flex: 0.65, textAlign: "right" },
+    cUnit:  { flex: 0.9,  paddingLeft: 5 },
+    cPrice: { flex: 1.35, textAlign: "right" },
+    cVat:   { flex: 0.7,  textAlign: "right" },
+    cDisc:  { flex: 0.7,  textAlign: "right" },
+    cTotal: { flex: 1.4,  textAlign: "right" },
+
+    // ── Totals ────────────────────────────────────────────────────────────────
+    totalsSection: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginTop: 8,
+      marginBottom: 0,
+    },
+    totalsCard: {
+      width: 218,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    totRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderBottom: `1px solid ${BORDER}`,
+    },
+    totRowLast: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+    },
+    totLabel: { fontSize: 8.5, color: GRAY },
+    totValue: { fontSize: 8.5, color: "#334155" },
+    totDiscLabel: { fontSize: 8.5, color: "#dc2626" },
+    totDiscValue: { fontSize: 8.5, color: "#dc2626" },
+    totalFinal: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: c,
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+    },
+    totalFinalLabel: { fontSize: 10, fontFamily: bold, color: "#fff" },
+    totalFinalValue: { fontSize: 13, fontFamily: bold, color: "#fff" },
+
+    // ── Bottom section (notes + conditions) ──────────────────────────────────
+    bottomRow: { flexDirection: "row", gap: 12, marginTop: 20 },
+    noteBox: {
+      flex: 1,
+      backgroundColor: "#f8fafc",
+      borderRadius: 3,
+      borderLeft: `3px solid ${hex(c, 0.45)}`,
+      padding: 10,
+    },
+    noteLabel: {
+      fontSize: 7.5, fontFamily: bold, color: c,
+      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5,
+    },
+    noteText: { fontSize: 8, color: "#475569", lineHeight: 1.65 },
+
+    // ── Bank ──────────────────────────────────────────────────────────────────
+    bankBox: {
+      marginTop: 14,
+      flexDirection: "row",
+      gap: 24,
+      backgroundColor: hex(c, 0.05),
+      border: `1px solid ${hex(c, 0.2)}`,
+      borderRadius: 4,
+      padding: 10,
+    },
+    bankLabel: {
+      fontSize: 7.5, fontFamily: bold, color: c,
+      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
+    },
+    bankText: { fontSize: 8.5, color: "#1e3a5f" },
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    footer: {
+      position: "absolute",
+      bottom: hasFooterImg ? 74 : 18,
+      left: PAD, right: PAD,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingTop: 6,
+      borderTop: `1px solid ${BORDER}`,
+    },
+    footerText: { fontSize: 7.5, color: "#94a3b8" },
+    footerImg: {
+      position: "absolute", bottom: 0, left: -PAD, right: -PAD,
+      width: "130%", height: 65, objectFit: "cover",
+    },
+
+    // ── Attachment pages ──────────────────────────────────────────────────────
+    attachPage: { padding: 0 },
+    attachImg: { width: "100%", height: "100%", objectFit: "contain" },
+    attachCaption: {
+      position: "absolute", bottom: 10, left: 0, right: 0,
+      textAlign: "center", fontSize: 8, color: "#94a3b8",
+    },
+  });
+
+  // ── Info bar items ─────────────────────────────────────────────────────────
+  const infoItems: { label: string; value: string }[] = [
+    { label: "Référence", value: data.number },
+    { label: "Date d'émission", value: fmtDate(data.issueDate) },
+    ...(data.validUntil ? [{ label: "Valable jusqu'au", value: fmtDate(data.validUntil) }] : []),
+    ...(data.clientRef ? [{ label: "Réf. client", value: data.clientRef }] : []),
+  ];
+
   return (
     <Document title={`${docType} ${data.number}`} author={data.company.name}>
       <Page size="A4" style={s.page}>
 
-        {/* ══ ENTÊTE ══════════════════════════════════════════════════════════ */}
-        {template.headerImage ? (
-          /* — Bannière image avec overlay — */
-          <View style={s.headerBanner}>
-            <Image style={s.headerBannerImg} src={template.headerImage} />
-            <View style={s.headerBannerDim} />
-            <View style={s.headerBannerContent}>
+        {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
+
+        {hasHeaderImg ? (
+          /* ── Banner image version ── */
+          <View style={s.bannerWrap}>
+            <Image style={s.bannerImg} src={template.headerImage!} />
+            <View style={s.bannerOverlay} />
+            <View style={s.bannerContent}>
               <View>
-                {template.logo && <Image style={s.bannerLogo} src={template.logo} />}
-                <Text style={s.bannerCompanyName}>{data.company.name}</Text>
-                {data.company.address && <Text style={s.bannerInfo}>{data.company.address}</Text>}
-                {data.company.city && <Text style={s.bannerInfo}>{data.company.postalCode} {data.company.city}</Text>}
-                {data.company.phone && <Text style={s.bannerInfo}>Tél : {data.company.phone}</Text>}
-                {data.company.vatNumber && <Text style={s.bannerInfo}>TVA : {data.company.vatNumber}</Text>}
+                {template.logo && <Image style={s.bannerLogoImg} src={template.logo} />}
+                <Text style={s.bannerCompany}>{data.company.name}</Text>
+                {data.company.address && <Text style={s.bannerCompanySub}>{data.company.address}</Text>}
+                {(data.company.postalCode || data.company.city) && (
+                  <Text style={s.bannerCompanySub}>{data.company.postalCode} {data.company.city}</Text>
+                )}
+                {data.company.phone && <Text style={s.bannerCompanySub}>Tél : {data.company.phone}</Text>}
               </View>
               <View style={{ alignItems: "flex-end" }}>
                 <Text style={s.bannerDocType}>{docType}</Text>
-                <Text style={s.bannerDocRef}>{data.number}</Text>
+                <Text style={s.bannerDocNum}>{data.number}</Text>
                 {data.title && <Text style={s.bannerDocSub}>{data.title}</Text>}
-                <View style={s.bannerBadge}><Text>{STATUS_LABELS[data.status] || data.status}</Text></View>
               </View>
             </View>
           </View>
         ) : (
-          /* — Entête classique sans image — */
-          <View style={s.classicHeader}>
-            <View style={s.classicLeft}>
-              {template.logo && <Image style={s.logoImg} src={template.logo} />}
-              <Text style={s.companyName}>{data.company.name}</Text>
-              <Text style={s.companyInfo}>
-                {[data.company.address, data.company.postalCode && data.company.city ? `${data.company.postalCode} ${data.company.city}` : null]
-                  .filter(Boolean).join(" · ")}
-              </Text>
-              {data.company.phone && <Text style={s.companyInfo}>Tél : {data.company.phone}</Text>}
-              {data.company.email && <Text style={s.companyInfo}>{data.company.email}</Text>}
-              {data.company.vatNumber && <Text style={s.companyInfo}>N° TVA : {data.company.vatNumber}</Text>}
-              {data.company.website && <Text style={s.companyInfo}>{data.company.website}</Text>}
+          /* ── Classic header ── */
+          <>
+            <View style={s.headerRow}>
+              <View style={s.headerLeft}>
+                {template.logo
+                  ? <Image style={s.logoImg} src={template.logo} />
+                  : <Text style={s.hCompanyName}>{data.company.name}</Text>
+                }
+                {template.logo && <Text style={s.hCompanyName}>{data.company.name}</Text>}
+                {data.company.address && <Text style={s.hCompanySub}>{data.company.address}</Text>}
+                {(data.company.postalCode || data.company.city) && (
+                  <Text style={s.hCompanySub}>{data.company.postalCode} {data.company.city}</Text>
+                )}
+                {data.company.phone && <Text style={s.hCompanySub}>Tél : {data.company.phone}</Text>}
+                {data.company.email && <Text style={s.hCompanySub}>{data.company.email}</Text>}
+                {data.company.vatNumber && <Text style={s.hCompanySub}>TVA : {data.company.vatNumber}</Text>}
+                {data.company.website && <Text style={s.hCompanySub}>{data.company.website}</Text>}
+              </View>
+              <View style={s.headerRight}>
+                <Text style={s.hDocType}>{docType}</Text>
+                <Text style={s.hDocNum}>{data.number}</Text>
+                {data.title && <Text style={s.hDocTitle}>{data.title}</Text>}
+                <Text style={s.hDocDate}>Émis le {fmtDate(data.issueDate)}</Text>
+                {data.validUntil && (
+                  <Text style={s.hDocDate}>Valable jusqu&apos;au {fmtDate(data.validUntil)}</Text>
+                )}
+                {data.clientRef && (
+                  <Text style={s.hDocDate}>Réf. client : {data.clientRef}</Text>
+                )}
+              </View>
             </View>
-            <View style={s.classicRight}>
-              <Text style={s.docType}>{docType}</Text>
-              <Text style={s.docRef}>{data.number}</Text>
-              {data.title && <Text style={s.docSub}>{data.title}</Text>}
-              <View style={s.statusBadge}><Text>{STATUS_LABELS[data.status] || data.status}</Text></View>
-            </View>
-          </View>
+            <View style={s.divider} />
+          </>
         )}
 
-        {/* ══ BANDE MÉTA ══════════════════════════════════════════════════════ */}
-        <View style={s.metaBand}>
-          <View style={s.metaItem}>
-            <Text style={s.metaLabel}>Date d'émission</Text>
-            <Text style={s.metaValue}>{fmtDate(data.issueDate)}</Text>
-          </View>
-          {data.validUntil && (
-            <View style={s.metaItem}>
-              <Text style={s.metaLabel}>Valable jusqu'au</Text>
-              <Text style={s.metaValue}>{fmtDate(data.validUntil)}</Text>
-            </View>
-          )}
-          {data.clientRef && (
-            <View style={s.metaItem}>
-              <Text style={s.metaLabel}>Réf. commande client</Text>
-              <Text style={s.metaValue}>{data.clientRef}</Text>
-            </View>
-          )}
-          <View style={s.metaItemLast}>
-            <Text style={s.metaLabel}>Référence document</Text>
-            <Text style={s.metaValue}>{data.number}</Text>
-          </View>
-        </View>
-
-        {/* ══ ADRESSES ════════════════════════════════════════════════════════ */}
-        <View style={s.addrSection}>
-          {/* Émetteur */}
-          <View style={s.addrFrom}>
-            <Text style={s.addrSectionLabel}>De</Text>
-            <Text style={s.addrName}>{data.company.name}</Text>
-            {data.company.address && <Text style={s.addrLine}>{data.company.address}</Text>}
-            {data.company.city && <Text style={s.addrLine}>{data.company.postalCode} {data.company.city}</Text>}
-            {data.company.phone && <Text style={s.addrLine}>Tél : {data.company.phone}</Text>}
-            {data.company.email && <Text style={s.addrLine}>{data.company.email}</Text>}
-            {data.company.vatNumber && <Text style={s.addrLine}>N° TVA : {data.company.vatNumber}</Text>}
-          </View>
-          {/* Destinataire */}
-          <View style={s.addrTo}>
-            <Text style={s.addrSectionLabel}>Destinataire</Text>
-            <Text style={s.addrName}>{data.client.name}</Text>
-            {data.client.address && <Text style={s.addrLine}>{data.client.address}</Text>}
-            {data.client.city && <Text style={s.addrLine}>{data.client.postalCode} {data.client.city}</Text>}
-            {data.client.email && <Text style={s.addrLine}>{data.client.email}</Text>}
-            {data.client.vatNumber && <Text style={s.addrLine}>N° TVA : {data.client.vatNumber}</Text>}
-          </View>
-        </View>
-
-        {/* ══ CORPS ═══════════════════════════════════════════════════════════ */}
-        <View style={s.body}>
-
-          {/* Objet de l'offre */}
-          {data.title && (
-            <Text style={s.offerTitle}>Objet : {data.title}</Text>
-          )}
-
-          {/* ── Tableau des prestations ── */}
-          <View style={s.tableWrap}>
-            {/* En-tête */}
-            <View style={s.tableHead}>
-              <Text style={[s.thText, s.cDesc]}>Désignation</Text>
-              <Text style={[s.thText, s.cQty]}>Qté</Text>
-              <Text style={[s.thText, s.cUnit]}>Unité</Text>
-              <Text style={[s.thText, s.cPrice]}>P.U. HT</Text>
-              <Text style={[s.thText, s.cVat]}>TVA</Text>
-              {showDisc && <Text style={[s.thText, s.cDisc]}>Rem.</Text>}
-              <Text style={[s.thText, s.cTotal]}>Total TTC</Text>
-            </View>
-
-            {/* Lignes */}
-            {data.items.map((item, idx) => (
-              <View key={idx} style={[s.tableRow, idx % 2 === 1 ? s.tableRowAlt : {}]} wrap={false}>
-                <View style={s.cDesc}>
-                  <Text style={s.tdDesc}>{item.description}</Text>
-                  {item.notes ? <Text style={s.tdNotes}>{item.notes}</Text> : null}
-                </View>
-                <Text style={[s.tdText, s.cQty]}>{item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}</Text>
-                <Text style={[s.tdText, s.cUnit]}>{item.unit || "unité"}</Text>
-                <Text style={[s.tdText, s.cPrice]}>{fmt(item.unitPrice)}</Text>
-                <Text style={[s.tdText, s.cVat]}>{item.vatRate} %</Text>
-                {showDisc && (
-                  <Text style={[s.tdText, s.cDisc]}>{item.discount > 0 ? `${item.discount} %` : "—"}</Text>
-                )}
-                <Text style={[s.tdBold, s.cTotal]}>{fmt(item.total)}</Text>
+        {/* ══ INFO BAR (only when banner image, since dates are in header otherwise) ══ */}
+        {hasHeaderImg && (
+          <View style={[s.infoBar, { marginTop: 16 }]}>
+            {infoItems.map((item, i) => (
+              <View key={i} style={i < infoItems.length - 1 ? s.infoItem : s.infoItemLast}>
+                <Text style={s.infoLabel}>{item.label}</Text>
+                <Text style={s.infoValue}>{item.value}</Text>
               </View>
             ))}
           </View>
+        )}
 
-          {/* ── Totaux ── */}
-          <View style={s.totalsOuter}>
-            <View style={s.totalsBox}>
-              {/* Sous-total HT */}
-              <View style={s.totalRow}>
-                <Text style={s.totalLabel}>Sous-total HT</Text>
-                <Text style={s.totalValue}>{fmt(data.subtotal)}</Text>
-              </View>
-              {/* TVA par taux */}
-              {vatEntries.length > 0
-                ? vatEntries.map(([rate, amount]) => (
-                    <View key={rate} style={s.totalRow}>
-                      <Text style={s.totalLabel}>TVA {rate} %</Text>
-                      <Text style={s.totalValue}>{fmt(amount)}</Text>
-                    </View>
-                  ))
-                : (
-                  <View style={s.totalRow}>
-                    <Text style={s.totalLabel}>TVA</Text>
-                    <Text style={s.totalValue}>{fmt(data.vatAmount)}</Text>
-                  </View>
-                )}
-              {/* Remise globale */}
-              {hasDiscount && (
-                <View style={s.totalDiscRow}>
-                  <Text style={[s.totalLabel, { color: "#dc2626" }]}>Remise</Text>
-                  <Text style={[s.totalValue, { color: "#dc2626" }]}>− {fmt(data.discount)}</Text>
-                </View>
+        {/* ══ ADDRESSES ═══════════════════════════════════════════════════════ */}
+        <View style={s.addrRow}>
+          {/* Sender (only show in banner mode, classic header already shows company) */}
+          {hasHeaderImg ? (
+            <View style={s.addrFromBox}>
+              <Text style={s.addrLabel}>Émetteur</Text>
+              <Text style={s.addrName}>{data.company.name}</Text>
+              {data.company.address && <Text style={s.addrLine}>{data.company.address}</Text>}
+              {(data.company.postalCode || data.company.city) && (
+                <Text style={s.addrLine}>{data.company.postalCode} {data.company.city}</Text>
               )}
-              {/* Total final */}
-              <View style={s.totalFinalBox}>
-                <Text style={s.totalFinalLabel}>Total TTC</Text>
-                <Text style={s.totalFinalValue}>{fmt(data.total)}</Text>
+              {data.company.phone && <Text style={s.addrLine}>Tél : {data.company.phone}</Text>}
+              {data.company.email && <Text style={s.addrLine}>{data.company.email}</Text>}
+              {data.company.vatNumber && <Text style={s.addrLine}>TVA : {data.company.vatNumber}</Text>}
+            </View>
+          ) : (
+            <View style={s.addrFromBox} />
+          )}
+
+          {/* Client */}
+          <View style={s.addrToBox}>
+            <Text style={s.addrLabel}>Facturé à</Text>
+            <Text style={s.addrName}>{data.client.name}</Text>
+            {data.client.address && <Text style={s.addrLine}>{data.client.address}</Text>}
+            {(data.client.postalCode || data.client.city) && (
+              <Text style={s.addrLine}>{data.client.postalCode} {data.client.city}</Text>
+            )}
+            {data.client.email && <Text style={s.addrLine}>{data.client.email}</Text>}
+            {data.client.vatNumber && <Text style={s.addrLine}>TVA : {data.client.vatNumber}</Text>}
+          </View>
+        </View>
+
+        {/* ══ OFFER TITLE ═════════════════════════════════════════════════════ */}
+        {data.title && (
+          <Text style={s.offerTitle}>Objet : {data.title}</Text>
+        )}
+
+        {/* ══ TABLE ═══════════════════════════════════════════════════════════ */}
+
+        {/* Header */}
+        <View style={s.thead}>
+          <Text style={[s.th, s.cDesc]}>Désignation</Text>
+          <Text style={[s.th, s.cQty]}>Qté</Text>
+          <Text style={[s.th, s.cUnit]}>Unité</Text>
+          <Text style={[s.th, s.cPrice]}>Prix HT</Text>
+          <Text style={[s.th, s.cVat]}>TVA</Text>
+          {showDisc && <Text style={[s.th, s.cDisc]}>Rem.</Text>}
+          <Text style={[s.th, s.cTotal]}>Total TTC</Text>
+        </View>
+
+        {/* Rows */}
+        {data.items.map((item, idx) => (
+          <View key={idx} style={[s.trow, idx % 2 === 1 ? s.trowAlt : {}]} wrap={false}>
+            <View style={s.cDesc}>
+              <Text style={s.tdMain}>{item.description}</Text>
+              {item.notes ? <Text style={s.tdSub}>{item.notes}</Text> : null}
+            </View>
+            <Text style={[s.tdNum, s.cQty]}>
+              {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}
+            </Text>
+            <Text style={[s.tdNum, s.cUnit]}>{item.unit || "unité"}</Text>
+            <Text style={[s.tdNum, s.cPrice]}>{fmt(item.unitPrice)}</Text>
+            <Text style={[s.tdNum, s.cVat]}>{item.vatRate} %</Text>
+            {showDisc && (
+              <Text style={[s.tdNum, s.cDisc]}>
+                {item.discount > 0 ? `${item.discount} %` : "—"}
+              </Text>
+            )}
+            <Text style={[s.tdBold, s.cTotal]}>{fmt(item.total)}</Text>
+          </View>
+        ))}
+
+        {/* ══ TOTALS ══════════════════════════════════════════════════════════ */}
+        <View style={s.totalsSection}>
+          <View style={s.totalsCard}>
+            <View style={s.totRow}>
+              <Text style={s.totLabel}>Sous-total HT</Text>
+              <Text style={s.totValue}>{fmt(data.subtotal)}</Text>
+            </View>
+
+            {vatEntries.length > 0
+              ? vatEntries.map(([rate, amount]) => (
+                <View key={rate} style={s.totRow}>
+                  <Text style={s.totLabel}>TVA {rate} %</Text>
+                  <Text style={s.totValue}>{fmt(amount)}</Text>
+                </View>
+              ))
+              : (
+                <View style={s.totRow}>
+                  <Text style={s.totLabel}>TVA</Text>
+                  <Text style={s.totValue}>{fmt(data.vatAmount)}</Text>
+                </View>
+              )
+            }
+
+            {data.discount > 0 && (
+              <View style={s.totRowLast}>
+                <Text style={s.totDiscLabel}>Remise</Text>
+                <Text style={s.totDiscValue}>− {fmt(data.discount)}</Text>
               </View>
+            )}
+
+            <View style={s.totalFinal}>
+              <Text style={s.totalFinalLabel}>Total TTC</Text>
+              <Text style={s.totalFinalValue}>{fmt(data.total)}</Text>
             </View>
           </View>
         </View>
 
         {/* ══ NOTES + CONDITIONS ══════════════════════════════════════════════ */}
         {(data.notes || data.conditions) && (
-          <View style={s.bottomSection}>
+          <View style={s.bottomRow}>
             {data.notes && (
               <View style={s.noteBox}>
                 <Text style={s.noteLabel}>Notes</Text>
@@ -477,14 +575,14 @@ export function QuotePDFDocument({
             )}
             {data.conditions && (
               <View style={s.noteBox}>
-                <Text style={s.noteLabel}>Conditions de vente</Text>
+                <Text style={s.noteLabel}>Conditions de paiement</Text>
                 <Text style={s.noteText}>{data.conditions}</Text>
               </View>
             )}
           </View>
         )}
 
-        {/* ══ COORDONNÉES BANCAIRES ═══════════════════════════════════════════ */}
+        {/* ══ BANK ════════════════════════════════════════════════════════════ */}
         {template.showBank && (data.company.iban || data.company.bic) && (
           <View style={s.bankBox}>
             <View>
@@ -495,23 +593,27 @@ export function QuotePDFDocument({
           </View>
         )}
 
-        {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
+        {/* ══ FOOTER (fixed) ══════════════════════════════════════════════════ */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>{footerLine}</Text>
           <Text style={s.footerText}>{docType} · {data.number}</Text>
-          <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`} />
+          <Text
+            style={s.footerText}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`}
+          />
         </View>
 
         {template.footerImage && (
           <Image style={s.footerImg} src={template.footerImage} fixed />
         )}
+
       </Page>
 
-      {/* ══ PAGES PIÈCES JOINTES ════════════════════════════════════════════ */}
+      {/* ══ ATTACHMENT PAGES ════════════════════════════════════════════════ */}
       {attachmentPages.map((att, i) => (
         <Page key={i} size="A4" style={s.attachPage}>
           <Image style={s.attachImg} src={att.data} />
-          <Text style={s.attachLabel}>{att.name}</Text>
+          <Text style={s.attachCaption}>{att.name}</Text>
         </Page>
       ))}
     </Document>
