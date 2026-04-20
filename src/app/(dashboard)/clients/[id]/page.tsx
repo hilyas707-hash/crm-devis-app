@@ -34,22 +34,17 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      <Header />
+      <Header
+        title={client.name}
+        backHref="/clients"
+        badge={<Badge variant={statusVariant[client.status]}>{CLIENT_STATUS_LABELS[client.status]}</Badge>}
+      />
       <div className="p-4 md:p-6 space-y-6">
-        {/* Header client */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold">{client.name}</h1>
-              <Badge variant={statusVariant[client.status]}>
-                {CLIENT_STATUS_LABELS[client.status]}
-              </Badge>
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {client.type === "COMPANY" ? "Société" : "Particulier"}
-              {client.vatNumber && ` · TVA: ${client.vatNumber}`}
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {client.type === "COMPANY" ? "Société" : "Particulier"}
+            {client.vatNumber && ` · TVA: ${client.vatNumber}`}
+          </p>
           <div className="flex gap-2">
             <Button asChild>
               <Link href="/devis/new">

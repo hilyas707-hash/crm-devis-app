@@ -8,6 +8,7 @@ import { SearchFilter } from "@/components/ui/search-filter";
 import { formatCurrency, formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
 import { Plus, Receipt, Clock, Send, AlertCircle, CheckCircle, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { ClickableRow } from "@/components/ui/clickable-row";
 
 const STATUS_OPTIONS = [
   { value: "DRAFT", label: "Brouillon" },
@@ -121,7 +122,7 @@ export default async function FacturesPage({
                     const Icon = cfg.icon;
                     const isOverdue = inv.status !== "PAID" && inv.dueDate && new Date(inv.dueDate) < new Date();
                     return (
-                      <tr key={inv.id} className="hover:bg-[var(--muted)]/40 transition-colors group">
+                      <ClickableRow key={inv.id} href={`/factures/${inv.id}`} className="hover:bg-[var(--muted)]/40 transition-colors group">
                         <td className="px-5 py-4">
                           <Link href={`/factures/${inv.id}`} className="flex items-center gap-3">
                             <div className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
@@ -155,7 +156,7 @@ export default async function FacturesPage({
                         <td className="px-4 py-4">
                           <Badge variant={badgeVariant[inv.status]}>{INVOICE_STATUS_LABELS[inv.status]}</Badge>
                         </td>
-                      </tr>
+                      </ClickableRow>
                     );
                   })}
                 </tbody>

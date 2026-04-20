@@ -42,7 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <SessionProvider session={session}>
-      <div className="flex h-screen overflow-hidden bg-[var(--muted)]">
+      <div className="flex h-screen overflow-hidden bg-white">
         <Sidebar
           companies={companies}
           activeCompanyId={activeCompany?.id ?? ""}

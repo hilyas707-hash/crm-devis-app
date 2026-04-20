@@ -63,7 +63,7 @@ export default async function EditDevisPage({ params }: { params: Promise<{ id: 
 
   return (
     <div>
-      <Header title={`Modifier ${quote.number}`} />
+      <Header title={`Modifier · ${quote.number}`} backHref={`/devis/${id}`} />
       <div className="p-4 md:p-6 max-w-4xl">
         <QuoteForm
           clients={clients}

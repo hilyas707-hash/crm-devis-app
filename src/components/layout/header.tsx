@@ -1,17 +1,22 @@
 "use client";
 
 import { signOut, useSession } from "next-auth/react";
-import { Bell, LogOut, User } from "lucide-react";
+import { Bell, LogOut, User, ArrowLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
-interface HeaderProps { title?: string }
+interface HeaderProps {
+  title?: string;
+  backHref?: string;
+  badge?: React.ReactNode;
+}
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, backHref, badge }: HeaderProps) {
   const { data: session } = useSession();
 
   const initials = session?.user?.name
@@ -19,25 +24,40 @@ export function Header({ title }: HeaderProps) {
     : "??";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white/80 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
-      {/* Mobile: left padding for hamburger button */}
-      <div className="md:hidden w-10" />
+    <header className="flex h-14 items-center gap-2 border-b bg-white/90 backdrop-blur-sm px-3 md:px-5 sticky top-0 z-30">
+      {/* Mobile spacer for hamburger */}
+      <div className="md:hidden w-9 shrink-0" />
 
-      {title && (
-        <h1 className="text-base md:text-xl font-bold text-[var(--foreground)] truncate flex-1 text-center md:text-left">
-          {title}
-        </h1>
+      {/* Back button */}
+      {backHref && (
+        <Link href={backHref}
+          className="shrink-0 flex items-center justify-center h-8 w-8 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors">
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
       )}
 
-      <div className="ml-auto flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
+      {/* Title + badge */}
+      {title && (
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <h1 className="text-sm md:text-base font-semibold text-[var(--foreground)] truncate leading-tight">
+            {title}
+          </h1>
+          {badge && <span className="shrink-0">{badge}</span>}
+        </div>
+      )}
+
+      {!title && <div className="flex-1" />}
+
+      {/* Right actions */}
+      <div className="ml-auto flex items-center gap-1 shrink-0">
+        <Button variant="ghost" size="icon" className="hidden sm:inline-flex h-8 w-8">
           <Bell className="h-4 w-4" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
-              <Avatar className="h-9 w-9">
+            <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+              <Avatar className="h-8 w-8">
                 <AvatarImage src={session?.user?.image || ""} />
                 <AvatarFallback className="bg-blue-600 text-white text-xs">{initials}</AvatarFallback>
               </Avatar>

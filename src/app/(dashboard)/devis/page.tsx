@@ -8,6 +8,7 @@ import { SearchFilter } from "@/components/ui/search-filter";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/utils";
 import { Plus, FileText, Clock, CheckCircle, XCircle, Send, Receipt, Building2 } from "lucide-react";
 import Link from "next/link";
+import { ClickableRow } from "@/components/ui/clickable-row";
 
 const STATUS_OPTIONS = [
   { value: "DRAFT", label: "Brouillon" },
@@ -178,7 +179,7 @@ export default async function DevisPage({
                     const cfg = STATUS_CONFIG[q.status];
                     const Icon = cfg.icon;
                     return (
-                      <tr key={q.id} className="hover:bg-[var(--muted)]/40 transition-colors group">
+                      <ClickableRow key={q.id} href={`/devis/${q.id}`} className="hover:bg-[var(--muted)]/40 transition-colors group">
                         <td className="px-5 py-4">
                           <Link href={`/devis/${q.id}`} className="flex items-center gap-3">
                             <div className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}>
@@ -206,7 +207,7 @@ export default async function DevisPage({
                         <td className="px-4 py-4">
                           <Badge variant={badgeVariant[q.status]}>{QUOTE_STATUS_LABELS[q.status]}</Badge>
                         </td>
-                      </tr>
+                      </ClickableRow>
                     );
                   })}
                 </tbody>

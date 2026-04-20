@@ -55,16 +55,15 @@ export default async function DealDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <Header />
+      <Header
+        title={deal.title}
+        backHref="/deals"
+        badge={<Badge variant={stageBadge[deal.stage]}>{DEAL_STAGE_LABELS[deal.stage]}</Badge>}
+      />
       <div className="p-4 md:p-6 max-w-4xl space-y-6">
 
-        {/* En-tête */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold">{deal.title}</h1>
-              <Badge variant={stageBadge[deal.stage]}>{DEAL_STAGE_LABELS[deal.stage]}</Badge>
-            </div>
             <Link href={`/clients/${deal.client.id}`} className="text-sm text-[var(--muted-foreground)] hover:text-[var(--primary)] flex items-center gap-1">
               <User className="h-3.5 w-3.5" /> {deal.client.name}
             </Link>

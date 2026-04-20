@@ -48,30 +48,30 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div>
-      <Header />
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold">{invoice.number}</h1>
-              <Badge variant={badgeVariant[invoice.status]}>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
-            </div>
-            {invoice.title && <p className="text-[var(--muted-foreground)]">{invoice.title}</p>}
-            {invoice.quote && (
-              <p className="text-sm text-[var(--muted-foreground)]">
-                Devis: <Link href={`/devis/${invoice.quote.id}`} className="hover:text-[var(--primary)] hover:underline">{invoice.quote.number}</Link>
-              </p>
-            )}
+      <Header
+        title={`Facture · ${invoice.number}`}
+        backHref="/factures"
+        badge={<Badge variant={badgeVariant[invoice.status]}>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>}
+      />
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="space-y-0.5">
+            {invoice.title && <p className="font-medium">{invoice.title}</p>}
+            <p className="text-sm text-[var(--muted-foreground)]">
+              <Link href={`/clients/${invoice.client.id}`} className="hover:text-[var(--primary)] hover:underline">{invoice.client.name}</Link>
+              {" · "}Émise le {formatDate(invoice.issueDate)}
+              {invoice.quote && <> · Devis <Link href={`/devis/${invoice.quote.id}`} className="hover:text-[var(--primary)] hover:underline">{invoice.quote.number}</Link></>}
+            </p>
           </div>
-          <div className="flex gap-2 flex-wrap justify-end">
+          <div className="flex gap-2 flex-wrap">
             {invoice.status === "DRAFT" && (
-              <Button variant="outline" asChild>
+              <Button variant="outline" size="sm" asChild>
                 <Link href={`/factures/${id}/edit`}><Edit className="h-4 w-4" /> Modifier</Link>
               </Button>
             )}
             {invoice.status === "DRAFT" && (
               <form action={updateInvoiceStatus.bind(null, id, "SENT")}>
-                <Button type="submit" variant="outline"><Send className="h-4 w-4" /> Marquer envoyée</Button>
+                <Button type="submit" variant="outline" size="sm"><Send className="h-4 w-4" /> Marquer envoyée</Button>
               </form>
             )}
             {["SENT", "PARTIAL"].includes(invoice.status) && remaining > 0 && (

@@ -45,47 +45,55 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div>
-      <Header />
-      <div className="p-4 md:p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold">{quote.number}</h1>
-              <Badge variant={badgeVariant[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>
-            </div>
-            {quote.title && <p className="text-[var(--muted-foreground)]">{quote.title}</p>}
+      <Header
+        title={`Devis · ${quote.number}`}
+        backHref="/devis"
+        badge={<Badge variant={badgeVariant[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>}
+      />
+      <div className="p-4 md:p-6 space-y-5">
+
+        {/* Actions + meta */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="space-y-0.5">
+            {quote.title && <p className="font-medium">{quote.title}</p>}
+            <p className="text-sm text-[var(--muted-foreground)]">
+              <Link href={`/clients/${quote.client.id}`} className="hover:text-[var(--primary)] hover:underline">
+                {quote.client.name}
+              </Link>
+              {" · "}Émis le {formatDate(quote.issueDate)}
+              {quote.validUntil && ` · Valable jusqu'au ${formatDate(quote.validUntil)}`}
+            </p>
           </div>
-          <div className="flex gap-2 flex-wrap justify-end">
+          <div className="flex gap-2 flex-wrap">
             {canEdit && (
-              <Button variant="outline" asChild>
+              <Button variant="outline" size="sm" asChild>
                 <Link href={`/devis/${id}/edit`}><Edit className="h-4 w-4" /> Modifier</Link>
               </Button>
             )}
             {canSend && (
               <form action={updateQuoteStatus.bind(null, id, "SENT")}>
-                <Button type="submit" variant="outline">
+                <Button type="submit" variant="outline" size="sm">
                   <Send className="h-4 w-4" /> Marquer envoyé
                 </Button>
               </form>
             )}
             {canAccept && (
               <form action={updateQuoteStatus.bind(null, id, "ACCEPTED")}>
-                <Button type="submit" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50">
+                <Button type="submit" variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50">
                   <Check className="h-4 w-4" /> Accepté
                 </Button>
               </form>
             )}
             {canReject && (
               <form action={updateQuoteStatus.bind(null, id, "REJECTED")}>
-                <Button type="submit" variant="outline" className="text-red-600 border-red-600 hover:bg-red-50">
+                <Button type="submit" variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50">
                   <X className="h-4 w-4" /> Refusé
                 </Button>
               </form>
             )}
             {canInvoice && (
               <form action={convertQuoteToInvoice.bind(null, id)}>
-                <Button type="submit">
+                <Button type="submit" size="sm">
                   <ArrowRight className="h-4 w-4" /> Convertir en facture
                 </Button>
               </form>
@@ -97,16 +105,13 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
         <Tabs defaultValue="details">
           <TabsList>
             <TabsTrigger value="details">
-              <Receipt className="h-4 w-4 mr-1" />
-              Détails
+              <Receipt className="h-4 w-4 mr-1" />Détails
             </TabsTrigger>
             <TabsTrigger value="pdf">
-              <FileText className="h-4 w-4 mr-1" />
-              PDF &amp; Email
+              <FileText className="h-4 w-4 mr-1" />PDF &amp; Email
             </TabsTrigger>
           </TabsList>
 
-          {/* Tab Détails */}
           <TabsContent value="details" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <Card>
@@ -120,20 +125,10 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <p className="text-xs text-[var(--muted-foreground)] mb-1">Date d&apos;émission</p>
-                  <p className="font-medium">{formatDate(quote.issueDate)}</p>
-                  {quote.validUntil && (
-                    <>
-                      <p className="text-xs text-[var(--muted-foreground)] mt-2 mb-1">Valable jusqu&apos;au</p>
-                      <p className="font-medium">{formatDate(quote.validUntil)}</p>
-                    </>
-                  )}
-                  {quote.clientRef && (
-                    <>
-                      <p className="text-xs text-[var(--muted-foreground)] mt-2 mb-1">Réf. client</p>
-                      <p className="font-medium">{quote.clientRef}</p>
-                    </>
-                  )}
+                  <p className="text-xs text-[var(--muted-foreground)] mb-1">Dates</p>
+                  <p className="font-medium">Émis le {formatDate(quote.issueDate)}</p>
+                  {quote.validUntil && <p className="text-xs text-[var(--muted-foreground)] mt-1">Valable jusqu&apos;au {formatDate(quote.validUntil)}</p>}
+                  {quote.clientRef && <p className="text-xs text-[var(--muted-foreground)] mt-1">Réf. client : {quote.clientRef}</p>}
                 </CardContent>
               </Card>
               <Card>
@@ -205,7 +200,7 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
             </Card>
 
             {(quote.notes || quote.conditions) && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {quote.notes && (
                   <Card>
                     <CardHeader><CardTitle className="text-sm">Notes</CardTitle></CardHeader>
@@ -222,7 +217,6 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
             )}
           </TabsContent>
 
-          {/* Tab PDF & Email */}
           <TabsContent value="pdf" className="mt-4">
             <QuotePDFTab
               quoteId={id}
