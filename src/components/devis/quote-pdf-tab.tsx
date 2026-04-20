@@ -18,10 +18,11 @@ interface QuotePDFTabProps {
   companyName: string;
   total: number;
   emailMode?: "SMTP" | "MAILTO";
+  updatedAt: string; // cache-bust: changes on every save
 }
 
 export function QuotePDFTab({
-  quoteId, quoteNumber, clientEmail, companyName, total, emailMode = "SMTP",
+  quoteId, quoteNumber, clientEmail, companyName, total, emailMode = "SMTP", updatedAt,
 }: QuotePDFTabProps) {
   const [activeView, setActiveView] = useState<"preview" | "email">("preview");
   const [emailTo, setEmailTo] = useState(clientEmail || "");
@@ -32,7 +33,7 @@ export function QuotePDFTab({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const pdfUrl = `/api/devis/${quoteId}/pdf`;
+  const pdfUrl = `/api/devis/${quoteId}/pdf?t=${encodeURIComponent(updatedAt)}`;
 
   async function handleSmtpSend() {
     if (!emailTo) return;

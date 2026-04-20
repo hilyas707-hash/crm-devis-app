@@ -231,6 +231,7 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
               companyName={quote.company.name}
               total={quote.total}
               emailMode={emailMode}
+              updatedAt={quote.updatedAt.toISOString()}
             />
           </TabsContent>
         </Tabs>

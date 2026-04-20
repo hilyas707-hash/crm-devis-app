@@ -93,6 +93,7 @@ export async function GET(
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="devis-${quote.number}.pdf"`,
+      "Cache-Control": "no-store",
     },
   });
 }
