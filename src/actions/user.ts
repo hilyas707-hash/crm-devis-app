@@ -18,6 +18,7 @@ export async function updateUserSmtp(formData: FormData) {
   await prisma.user.update({
     where: { id: userId },
     data: {
+      emailMode: (raw.emailMode as string) || "SMTP",
       smtpHost: (raw.smtpHost as string) || null,
       smtpPort: raw.smtpPort ? parseInt(raw.smtpPort as string) : null,
       smtpUser: (raw.smtpUser as string) || null,

@@ -15,22 +15,30 @@ import { updateInvoiceStatus, addPayment } from "@/actions/invoices";
 import { PaymentModal } from "@/components/factures/payment-modal";
 import { InvoicePDFTab } from "@/components/factures/invoice-pdf-tab";
 
+export const dynamic = "force-dynamic";
+
 export default async function FactureDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId;
+  const userId = (session?.user as any)?.id;
 
-  const invoice = await prisma.invoice.findFirst({
-    where: { id, companyId },
-    include: {
-      client: true,
-      company: true,
-      items: { orderBy: { sortOrder: "asc" } },
-      payments: { orderBy: { date: "desc" } },
-      quote: true,
-    },
-  });
+  const [invoice, currentUser] = await Promise.all([
+    prisma.invoice.findFirst({
+      where: { id, companyId },
+      include: {
+        client: true,
+        company: true,
+        items: { orderBy: { sortOrder: "asc" } },
+        payments: { orderBy: { date: "desc" } },
+        quote: true,
+      },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { emailMode: true } }),
+  ]);
   if (!invoice) notFound();
+
+  const emailMode = (currentUser?.emailMode as "SMTP" | "MAILTO") || "SMTP";
 
   const badgeVariant: Record<string, any> = {
     DRAFT: "secondary", SENT: "info", PARTIAL: "warning", PAID: "success", OVERDUE: "destructive",
@@ -184,6 +192,7 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
               clientEmail={invoice.client.email}
               companyName={invoice.company.name}
               total={invoice.total}
+              emailMode={emailMode}
             />
           </TabsContent>
         </Tabs>

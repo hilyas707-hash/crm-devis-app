@@ -14,16 +14,24 @@ import { Edit, Receipt, Send, Check, X, ArrowRight, FileText } from "lucide-reac
 import Link from "next/link";
 import { updateQuoteStatus, convertQuoteToInvoice } from "@/actions/quotes";
 
+export const dynamic = "force-dynamic";
+
 export default async function DevisDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId;
+  const userId = (session?.user as any)?.id;
 
-  const quote = await prisma.quote.findFirst({
-    where: { id, companyId },
-    include: { client: true, items: { orderBy: { sortOrder: "asc" } }, company: true },
-  });
+  const [quote, currentUser] = await Promise.all([
+    prisma.quote.findFirst({
+      where: { id, companyId },
+      include: { client: true, items: { orderBy: { sortOrder: "asc" } }, company: true },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { emailMode: true } }),
+  ]);
   if (!quote) notFound();
+
+  const emailMode = (currentUser?.emailMode as "SMTP" | "MAILTO") || "SMTP";
 
   const badgeVariant: Record<string, any> = {
     DRAFT: "secondary", SENT: "info", ACCEPTED: "success", REJECTED: "destructive", INVOICED: "purple",
@@ -222,6 +230,7 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
               clientEmail={quote.client.email}
               companyName={quote.company.name}
               total={quote.total}
+              emailMode={emailMode}
             />
           </TabsContent>
         </Tabs>

@@ -27,6 +27,7 @@ model User {
   smtpPass      String?
   smtpSecure    Boolean    @default(false)
   smtpFrom      String?
+  emailMode     String     @default("SMTP")
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }

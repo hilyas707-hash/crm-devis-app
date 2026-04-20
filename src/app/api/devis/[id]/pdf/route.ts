@@ -6,6 +6,8 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDFDocument } from "@/components/devis/quote-pdf-document";
 import React from "react";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

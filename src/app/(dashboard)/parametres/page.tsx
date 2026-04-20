@@ -29,7 +29,7 @@ export default async function ParametresPage() {
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     }),
     prisma.user.findUnique({ where: { id: userId }, select: {
-      smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true,
+      emailMode: true, smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true,
     }}),
   ]);
 
@@ -151,6 +151,7 @@ export default async function ParametresPage() {
           {/* ── Onglet Email ── */}
           <TabsContent value="email">
             <SmtpConfig initial={{
+              emailMode: currentUser?.emailMode ?? "SMTP",
               smtpHost: currentUser?.smtpHost ?? null,
               smtpPort: currentUser?.smtpPort ?? null,
               smtpUser: currentUser?.smtpUser ?? null,
