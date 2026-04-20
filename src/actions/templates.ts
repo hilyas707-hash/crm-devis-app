@@ -123,8 +123,11 @@ export async function deleteTemplate(id: string) {
 
 export async function setDefaultTemplate(id: string) {
   const companyId = await getCompanyId();
+  // Vérifie que le template appartient à la company avant de l'activer
+  const tpl = await prisma.quoteTemplate.findFirst({ where: { id, companyId } });
+  if (!tpl) throw new Error("Template introuvable");
   await prisma.quoteTemplate.updateMany({ where: { companyId }, data: { isDefault: false } });
-  await prisma.quoteTemplate.update({ where: { id }, data: { isDefault: true } });
+  await prisma.quoteTemplate.update({ where: { id, companyId }, data: { isDefault: true } });
   revalidatePath("/parametres");
 }
 

@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(req: NextRequest) {
   try {
     const { name, email, password, companyName } = await req.json();
 
     if (!name || !email || !password || !companyName) {
       return NextResponse.json({ error: "Tous les champs sont requis." }, { status: 400 });
+    }
+
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: "Adresse email invalide." }, { status: 400 });
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json({ error: "Le mot de passe doit contenir au moins 8 caractères." }, { status: 400 });
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });

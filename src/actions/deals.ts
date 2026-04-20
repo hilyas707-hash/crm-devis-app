@@ -2,21 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireCompanyId } from "@/lib/session";
 import { dealSchema } from "@/lib/validations/deal";
 
-async function getCompanyId() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Non authentifié");
-  const companyId = (session.user as any).companyId;
-  if (!companyId) throw new Error("Pas d'entreprise associée");
-  return companyId as string;
-}
-
 export async function createDeal(formData: FormData) {
-  const companyId = await getCompanyId();
+  const companyId = await requireCompanyId();
   const raw = Object.fromEntries(formData);
   const data = dealSchema.parse({
     ...raw,
@@ -24,9 +15,7 @@ export async function createDeal(formData: FormData) {
     probability: parseInt(raw.probability as string) || 20,
   });
 
-  const client = await prisma.client.findFirst({
-    where: { id: data.clientId, companyId },
-  });
+  const client = await prisma.client.findFirst({ where: { id: data.clientId, companyId } });
   if (!client) throw new Error("Client introuvable");
 
   const deal = await prisma.deal.create({ data });
@@ -36,7 +25,7 @@ export async function createDeal(formData: FormData) {
 }
 
 export async function updateDeal(id: string, formData: FormData) {
-  const companyId = await getCompanyId();
+  const companyId = await requireCompanyId();
   const raw = Object.fromEntries(formData);
   const data = dealSchema.parse({
     ...raw,
@@ -44,9 +33,11 @@ export async function updateDeal(id: string, formData: FormData) {
     probability: parseInt(raw.probability as string) || 20,
   });
 
-  const client = await prisma.client.findFirst({
-    where: { id: data.clientId, companyId },
-  });
+  // Vérifie que le deal appartient bien à la company
+  const deal = await prisma.deal.findFirst({ where: { id, client: { companyId } } });
+  if (!deal) throw new Error("Opportunité introuvable ou accès refusé");
+
+  const client = await prisma.client.findFirst({ where: { id: data.clientId, companyId } });
   if (!client) throw new Error("Client introuvable");
 
   await prisma.deal.update({ where: { id }, data });
@@ -57,11 +48,20 @@ export async function updateDeal(id: string, formData: FormData) {
 }
 
 export async function updateDealStage(id: string, stage: string) {
+  const companyId = await requireCompanyId();
+  const deal = await prisma.deal.findFirst({ where: { id, client: { companyId } } });
+  if (!deal) throw new Error("Opportunité introuvable ou accès refusé");
+
   await prisma.deal.update({ where: { id }, data: { stage } });
+  revalidatePath(`/deals/${id}`);
   revalidatePath("/deals");
 }
 
 export async function deleteDeal(id: string) {
+  const companyId = await requireCompanyId();
+  const deal = await prisma.deal.findFirst({ where: { id, client: { companyId } } });
+  if (!deal) throw new Error("Opportunité introuvable ou accès refusé");
+
   await prisma.deal.delete({ where: { id } });
   revalidatePath("/deals");
   redirect("/deals");

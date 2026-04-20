@@ -2,21 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireCompanyId } from "@/lib/session";
 import { clientSchema, contactSchema } from "@/lib/validations/client";
 
-async function getCompanyId() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) throw new Error("Non authentifié");
-  const companyId = (session.user as any).companyId;
-  if (!companyId) throw new Error("Pas d'entreprise associée");
-  return companyId as string;
-}
-
 export async function createClient(formData: FormData) {
-  const companyId = await getCompanyId();
+  const companyId = await requireCompanyId();
   const raw = Object.fromEntries(formData);
   const data = clientSchema.parse({
     ...raw,
@@ -25,16 +16,14 @@ export async function createClient(formData: FormData) {
     country: raw.country || "Belgique",
   });
 
-  const client = await prisma.client.create({
-    data: { ...data, companyId },
-  });
+  const client = await prisma.client.create({ data: { ...data, companyId } });
 
   revalidatePath("/clients");
   redirect(`/clients/${client.id}`);
 }
 
 export async function updateClient(id: string, formData: FormData) {
-  const companyId = await getCompanyId();
+  const companyId = await requireCompanyId();
   const raw = Object.fromEntries(formData);
   const data = clientSchema.parse({
     ...raw,
@@ -43,10 +32,7 @@ export async function updateClient(id: string, formData: FormData) {
     country: raw.country || "Belgique",
   });
 
-  await prisma.client.update({
-    where: { id, companyId },
-    data,
-  });
+  await prisma.client.update({ where: { id, companyId }, data });
 
   revalidatePath(`/clients/${id}`);
   revalidatePath("/clients");
@@ -54,14 +40,14 @@ export async function updateClient(id: string, formData: FormData) {
 }
 
 export async function deleteClient(id: string) {
-  const companyId = await getCompanyId();
+  const companyId = await requireCompanyId();
   await prisma.client.delete({ where: { id, companyId } });
   revalidatePath("/clients");
   redirect("/clients");
 }
 
 export async function createContact(clientId: string, formData: FormData) {
-  const companyId = await getCompanyId();
+  const companyId = await requireCompanyId();
   const raw = Object.fromEntries(formData);
   const data = contactSchema.parse(raw);
 
@@ -74,6 +60,14 @@ export async function createContact(clientId: string, formData: FormData) {
 }
 
 export async function deleteContact(contactId: string, clientId: string) {
+  const companyId = await requireCompanyId();
+
+  // Vérifie que le contact appartient à un client de cette company
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, clientId, client: { companyId } },
+  });
+  if (!contact) throw new Error("Contact introuvable ou accès refusé");
+
   await prisma.contact.delete({ where: { id: contactId } });
   revalidatePath(`/clients/${clientId}`);
 }

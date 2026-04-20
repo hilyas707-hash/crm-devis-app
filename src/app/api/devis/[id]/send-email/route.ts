@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { QuotePDFDocument } from "@/components/devis/quote-pdf-document";
-import nodemailer from "nodemailer";
+import { isValidEmail, sendEmail, buildDocumentEmailHtml } from "@/lib/email";
 import React from "react";
 
 export async function POST(
@@ -15,21 +15,31 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { id } = await params;
-  const companyId = (session.user as any).companyId;
-  const userId = (session.user as any).id;
+  const companyId = session.user.companyId as string;
+  const userId = session.user.id;
   const body = await request.json();
   const { to, subject, message } = body as { to: string; subject: string; message: string };
 
-  if (!to || !subject) {
-    return NextResponse.json({ error: "Destinataire et sujet requis" }, { status: 400 });
+  if (!to || !subject || !message) {
+    return NextResponse.json({ error: "Destinataire, sujet et message requis" }, { status: 400 });
+  }
+  if (!isValidEmail(to)) {
+    return NextResponse.json({ error: "Adresse email destinataire invalide" }, { status: 400 });
   }
 
   const [quote, currentUser] = await Promise.all([
     prisma.quote.findFirst({
       where: { id, companyId },
-      include: { client: true, items: { orderBy: { sortOrder: "asc" } }, company: true },
+      include: {
+        client: true,
+        items: { orderBy: { sortOrder: "asc" } },
+        company: true,
+      },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true } }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true },
+    }),
   ]);
 
   if (!quote) return NextResponse.json({ error: "Devis introuvable" }, { status: 404 });
@@ -62,14 +72,7 @@ export async function POST(
       discount: item.discount,
       total: item.total,
     })),
-    client: {
-      name: quote.client.name,
-      address: quote.client.address,
-      city: quote.client.city,
-      postalCode: quote.client.postalCode,
-      email: quote.client.email,
-      vatNumber: quote.client.vatNumber,
-    },
+    client: quote.client,
     company: {
       name: quote.company.name,
       address: quote.company.address,
@@ -88,69 +91,41 @@ export async function POST(
     React.createElement(QuotePDFDocument, { data, template }) as any
   );
 
-  // Priorité : email utilisateur > email entreprise > variables d'env
   const smtpUser = currentUser?.smtpUser || process.env.SMTP_USER;
   const smtpPass = currentUser?.smtpPass || process.env.SMTP_PASS;
   const smtpHost = currentUser?.smtpHost || process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = currentUser?.smtpPort || Number(process.env.SMTP_PORT || 587);
   const smtpSecure = currentUser?.smtpSecure ?? (process.env.SMTP_SECURE === "true");
+  const fromName = currentUser?.smtpFrom || quote.company.name;
 
   if (!smtpUser || !smtpPass) {
-    return NextResponse.json({ error: "Configuration email manquante. Allez dans Paramètres → Email pour configurer votre adresse email." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Configuration email manquante. Allez dans Paramètres → Email pour configurer votre adresse email." },
+      { status: 400 }
+    );
   }
 
-  const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpSecure,
-    auth: { user: smtpUser, pass: smtpPass },
+  const html = buildDocumentEmailHtml({
+    fromName,
+    docLabel: "Devis",
+    docNumber: quote.number,
+    message,
+    total: quote.total,
+    extraInfo: quote.validUntil
+      ? `Valable jusqu'au : ${new Date(quote.validUntil).toLocaleDateString("fr-BE")}`
+      : undefined,
+    companyPhone: quote.company.phone ?? undefined,
+    companyEmail: quote.company.email ?? undefined,
   });
 
-  const fromName = currentUser?.smtpFrom || quote.company.name;
-  const fromEmail = smtpUser;
-
-  const emailBody = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family: Arial, sans-serif; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: #2563eb; color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-    <h1 style="margin:0; font-size: 20px;">${fromName}</h1>
-    <p style="margin:4px 0 0; opacity:.8; font-size:13px;">Devis ${quote.number}</p>
-  </div>
-  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-top:none; padding: 24px; border-radius: 0 0 8px 8px;">
-    <p>${message.replace(/\n/g, "<br>")}</p>
-    <hr style="border:none; border-top:1px solid #e2e8f0; margin: 20px 0;">
-    <p style="font-size:12px; color:#64748b;">
-      Vous trouverez le devis <strong>${quote.number}</strong> en pièce jointe (PDF).<br>
-      Montant total TTC : <strong>${quote.total.toFixed(2)} €</strong>
-      ${quote.validUntil ? `<br>Valable jusqu'au : ${new Date(quote.validUntil).toLocaleDateString("fr-BE")}` : ""}
-    </p>
-    <p style="font-size:12px; color:#64748b; margin-top:16px;">
-      Cordialement,<br>
-      <strong>${fromName}</strong><br>
-      ${quote.company.phone || ""}${quote.company.phone && quote.company.email ? " — " : ""}${quote.company.email || ""}
-    </p>
-  </div>
-</body>
-</html>
-`;
-
-  await transporter.sendMail({
-    from: `"${fromName}" <${fromEmail}>`,
+  await sendEmail({
+    smtp: { host: smtpHost, port: smtpPort, secure: smtpSecure, user: smtpUser, pass: smtpPass, fromName },
     to,
     subject,
-    html: emailBody,
-    attachments: [
-      {
-        filename: `devis-${quote.number}.pdf`,
-        content: pdfBuffer,
-        contentType: "application/pdf",
-      },
-    ],
+    html,
+    attachments: [{ filename: `devis-${quote.number}.pdf`, content: pdfBuffer as Buffer, contentType: "application/pdf" }],
   });
 
-  // Mark quote as SENT if still DRAFT
   if (quote.status === "DRAFT") {
     await prisma.quote.update({ where: { id }, data: { status: "SENT" } });
   }

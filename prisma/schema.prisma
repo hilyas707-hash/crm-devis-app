@@ -20,7 +20,6 @@ model User {
   accounts      Account[]
   sessions      Session[]
   activities    Activity[]
-  // Email personnel de l'utilisateur
   smtpHost        String?
   smtpPort        Int?
   smtpUser        String?
@@ -86,14 +85,12 @@ model Company {
   invoicePrefix     String    @default("FAC")
   nextQuoteNumber   Int       @default(1)
   nextInvoiceNumber Int       @default(1)
-  // Template PDF
   tplColor          String    @default("#2563eb")
   tplFont           String    @default("Helvetica")
   tplLogo           String?
   tplFooter         String?
   tplConditions     String?
   tplShowBank       Boolean   @default(true)
-  // Préférences multi-choix
   prefVatRates      String    @default("6,12,21")
   prefPaymentMethods String   @default("VIREMENT,CHEQUE,CARTE,ESPECES")
   prefUnits         String    @default("heure,jour,unité,forfait,m²,kg,litre,mois")
@@ -105,7 +102,6 @@ model Company {
   prefAutoConditions Boolean  @default(true)
   prefCurrency      String    @default("EUR")
   prefLanguage      String    @default("fr-BE")
-  // Configuration SMTP
   smtpHost          String?
   smtpPort          Int?
   smtpUser          String?
@@ -157,6 +153,9 @@ model Client {
   activities Activity[]
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, name])
 }
 
 model Contact {
@@ -172,6 +171,8 @@ model Contact {
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([clientId])
 }
 
 model Product {
@@ -189,6 +190,8 @@ model Product {
   invoiceItems InvoiceItem[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  @@index([companyId])
 }
 
 model QuoteTemplate {
@@ -197,16 +200,13 @@ model QuoteTemplate {
   isDefault      Boolean  @default(false)
   companyId      String
   company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  // Visuel
   color          String   @default("#2563eb")
   font           String   @default("Helvetica")
   logo           String?
   footer         String?
   showBank       Boolean  @default(true)
-  // Contenu
   conditions     String?
   autoConditions Boolean  @default(true)
-  // Préférences
   vatRates       String   @default("6,12,21")
   paymentMethods String   @default("VIREMENT,CHEQUE,CARTE,ESPECES")
   units          String   @default("heure,jour,unité,forfait,m²,kg,litre,mois")
@@ -217,12 +217,14 @@ model QuoteTemplate {
   showDelivery   Boolean  @default(false)
   currency       String   @default("EUR")
   language       String   @default("fr-BE")
-  headerImage    String?  // base64 — bannière pleine largeur en haut du PDF
-  footerImage    String?  // base64 — image fixe en bas de chaque page
-  attachments    String?  // JSON: [{name, data}] — pages supplémentaires
+  headerImage    String?
+  footerImage    String?
+  attachments    String?
   quotes         Quote[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([companyId])
 }
 
 model Quote {
@@ -251,6 +253,10 @@ model Quote {
   activities   Activity[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([clientId])
 }
 
 model QuoteItem {
@@ -268,6 +274,8 @@ model QuoteItem {
   quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   productId   String?
   product     Product? @relation(fields: [productId], references: [id])
+
+  @@index([quoteId])
 }
 
 model Invoice {
@@ -297,6 +305,10 @@ model Invoice {
   activities   Activity[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, dueDate])
+  @@index([clientId])
 }
 
 model InvoiceItem {
@@ -314,6 +326,8 @@ model InvoiceItem {
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   productId   String?
   product     Product? @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
 }
 
 model Payment {
@@ -326,6 +340,8 @@ model Payment {
   invoiceId String
   invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([invoiceId])
 }
 
 model Deal {
@@ -341,6 +357,8 @@ model Deal {
   activities  Activity[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  @@index([clientId, stage])
 }
 
 model Activity {
@@ -362,4 +380,7 @@ model Activity {
   deal        Deal?     @relation(fields: [dealId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([clientId])
 }

@@ -18,7 +18,7 @@ export default async function ActivitesPage() {
   const companyId = (session?.user as any)?.companyId;
 
   const activities = await prisma.activity.findMany({
-    where: { userId },
+    where: { userId, client: { companyId } },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: { client: true, quote: true, invoice: true, deal: true },

@@ -52,9 +52,11 @@ export default async function DevisPage({
     if (!allCompanies.find((c) => c.id === uc.companyId)) allCompanies.push(uc.company);
   }
 
-  // Entreprise sélectionnée pour le filtre (par défaut = active)
-  const selectedCompanyId = companyFilter || activeCompanyId;
+  // Valide que l'entreprise demandée appartient bien à l'utilisateur (empêche la fuite inter-companies)
   const companyIds = allCompanies.map((c) => c.id);
+  const selectedCompanyId = companyIds.includes(companyFilter)
+    ? companyFilter
+    : (activeCompanyId ?? companyIds[0] ?? "");
 
   const where: any = { companyId: selectedCompanyId };
   if (status) where.status = status;
