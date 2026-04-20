@@ -149,12 +149,27 @@ export function QuotePDFDocument({
       flexDirection: "row", justifyContent: "space-between", alignItems: "center",
       paddingHorizontal: PAD, paddingVertical: 18,
     },
-    bannerLogoImg: { height: 40, maxWidth: 130, objectFit: "contain", marginBottom: 6 },
+    bannerLogoImg: { maxHeight: 40, maxWidth: 130, objectFit: "contain", marginBottom: 6 },
     bannerCompany: { fontSize: 15, fontFamily: bold, color: "#fff" },
     bannerCompanySub: { fontSize: 8, color: "rgba(255,255,255,0.78)", marginTop: 2 },
     bannerDocType: { fontSize: 30, fontFamily: bold, color: "#fff", textAlign: "right" },
     bannerDocNum: { fontSize: 11, color: "rgba(255,255,255,0.92)", textAlign: "right", marginTop: 4, fontFamily: bold },
     bannerDocSub: { fontSize: 8.5, color: "rgba(255,255,255,0.72)", textAlign: "right", marginTop: 3 },
+
+    // ── Compact continuation header (page 2+) ─────────────────────────────────
+    contHeaderWrap: {
+      position: "absolute",
+      top: 0, left: 0, right: 0,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: PAD,
+      paddingVertical: 8,
+      backgroundColor: c,
+      height: 36,
+    },
+    contHeaderLeft: { fontSize: 8.5, fontFamily: bold, color: "#fff" },
+    contHeaderRight: { fontSize: 8, color: "rgba(255,255,255,0.85)" },
 
     // ── Classic header (no image) ──────────────────────────────────────────────
     headerRow: {
@@ -165,7 +180,7 @@ export function QuotePDFDocument({
     },
     headerLeft: { flex: 1, paddingRight: 20 },
     headerRight: { alignItems: "flex-end" },
-    logoImg: { height: 50, maxWidth: 160, objectFit: "contain", marginBottom: 8 },
+    logoImg: { maxHeight: 54, maxWidth: 160, objectFit: "contain", marginBottom: 8 },
     hCompanyName: { fontSize: 13, fontFamily: bold, color: c, marginBottom: 3 },
     hCompanySub: { fontSize: 8, color: GRAY, lineHeight: 1.55 },
     hDocType: { fontSize: 30, fontFamily: bold, color: c, marginBottom: 4, textAlign: "right" },
@@ -402,6 +417,17 @@ export function QuotePDFDocument({
   return (
     <Document title={`${docType} ${data.number}`} author={data.company.name}>
       <Page size="A4" style={s.page}>
+
+        {/* ══ COMPACT HEADER — page 2+ seulement ═════════════════════════════ */}
+        <View
+          fixed
+          render={({ pageNumber }) => pageNumber > 1 ? (
+            <View style={s.contHeaderWrap}>
+              <Text style={s.contHeaderLeft}>{data.company.name}</Text>
+              <Text style={s.contHeaderRight}>{docType} · {data.number}{data.title ? ` — ${data.title}` : ""}</Text>
+            </View>
+          ) : null}
+        />
 
         {/* ══ HEADER ══════════════════════════════════════════════════════════ */}
 
