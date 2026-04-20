@@ -315,19 +315,39 @@ export function QuotePDFDocument({
     totalFinalValue: { fontSize: 13, fontFamily: bold, color: "#fff" },
 
     // ── Bottom section (notes + conditions) ──────────────────────────────────
-    bottomRow: { flexDirection: "row", gap: 12, marginTop: 20 },
+    bottomRow: { flexDirection: "row", gap: 10, marginTop: 16 },
     noteBox: {
       flex: 1,
-      backgroundColor: "#f8fafc",
-      borderRadius: 3,
-      borderLeft: `3px solid ${hex(c, 0.45)}`,
-      padding: 10,
+      borderLeft: `2px solid ${hex(c, 0.35)}`,
+      paddingLeft: 8,
+      paddingVertical: 5,
     },
     noteLabel: {
-      fontSize: 7.5, fontFamily: bold, color: c,
-      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5,
+      fontSize: 7, fontFamily: bold, color: c,
+      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3,
     },
-    noteText: { fontSize: 8, color: "#475569", lineHeight: 1.65 },
+    noteText: { fontSize: 7.5, color: "#64748b", lineHeight: 1.55 },
+
+    // ── Signature ─────────────────────────────────────────────────────────────
+    sigSection: {
+      flexDirection: "row",
+      gap: 16,
+      marginTop: 20,
+    },
+    sigBox: {
+      flex: 1,
+      border: `1px solid ${BORDER}`,
+      borderRadius: 4,
+      padding: 10,
+      minHeight: 70,
+    },
+    sigLabel: {
+      fontSize: 7.5, fontFamily: bold, color: c,
+      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
+    },
+    sigSub: { fontSize: 7, color: GRAY, marginBottom: 20 },
+    sigLine: { borderBottom: `1px solid ${BORDER}`, marginTop: 12 },
+    sigLineLabel: { fontSize: 7, color: "#94a3b8", marginTop: 3 },
 
     // ── Bank ──────────────────────────────────────────────────────────────────
     bankBox: {
@@ -583,6 +603,7 @@ export function QuotePDFDocument({
         )}
 
         {/* ══ BANK ════════════════════════════════════════════════════════════ */}
+
         {template.showBank && (data.company.iban || data.company.bic) && (
           <View style={s.bankBox}>
             <View>
@@ -592,6 +613,24 @@ export function QuotePDFDocument({
             </View>
           </View>
         )}
+
+        {/* ══ SIGNATURE ═══════════════════════════════════════════════════════ */}
+        <View style={s.sigSection} wrap={false}>
+          {/* Émetteur */}
+          <View style={s.sigBox}>
+            <Text style={s.sigLabel}>{data.company.name}</Text>
+            <Text style={s.sigSub}>Signature et cachet</Text>
+            <View style={s.sigLine} />
+            <Text style={s.sigLineLabel}>Date : _____ / _____ / _______</Text>
+          </View>
+          {/* Client */}
+          <View style={s.sigBox}>
+            <Text style={s.sigLabel}>Lu et approuvé — {data.client.name}</Text>
+            <Text style={s.sigSub}>Bon pour accord — signature précédée de la mention</Text>
+            <View style={s.sigLine} />
+            <Text style={s.sigLineLabel}>Date : _____ / _____ / _______</Text>
+          </View>
+        </View>
 
         {/* ══ FOOTER (fixed) ══════════════════════════════════════════════════ */}
         <View style={s.footer} fixed>
