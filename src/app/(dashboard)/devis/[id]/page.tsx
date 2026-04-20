@@ -199,6 +199,13 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
               </CardContent>
             </Card>
 
+            {quote.introText && (
+              <Card>
+                <CardHeader><CardTitle className="text-sm">Texte d&apos;introduction</CardTitle></CardHeader>
+                <CardContent><p className="text-sm text-[var(--muted-foreground)] whitespace-pre-wrap">{quote.introText}</p></CardContent>
+              </Card>
+            )}
+
             {(quote.notes || quote.conditions) && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {quote.notes && (

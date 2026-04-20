@@ -55,6 +55,7 @@ export async function POST(
   const data = {
     number: quote.number,
     title: quote.title,
+    introText: quote.introText,
     status: quote.status,
     issueDate: quote.issueDate,
     validUntil: quote.validUntil,

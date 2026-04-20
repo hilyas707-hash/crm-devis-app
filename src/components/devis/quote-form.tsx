@@ -52,6 +52,7 @@ interface QuoteFormProps {
     clientRef?: string;
     issueDate?: string;
     validUntil?: string;
+    introText?: string;
     notes?: string;
     conditions?: string;
     discount?: number;
@@ -204,6 +205,7 @@ export function QuoteForm({
       clientRef: (fd.get("clientRef") as string) || undefined,
       issueDate: fd.get("issueDate") as string,
       validUntil: (fd.get("validUntil") as string) || undefined,
+      introText: (fd.get("introText") as string) || undefined,
       notes: (fd.get("notes") as string) || undefined,
       conditions: conditions || undefined,
       discount: discountValue,
@@ -338,6 +340,26 @@ export function QuoteForm({
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Texte d'introduction (avant le tableau) */}
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[var(--primary)]" />
+            Texte d&apos;introduction
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            id="introText"
+            name="introText"
+            defaultValue={defaultValues?.introText || ""}
+            placeholder="Texte affiché avant le tableau — présentation de l'offre, contexte du projet, message personnalisé…"
+            rows={3}
+            className="resize-none text-sm"
+          />
         </CardContent>
       </Card>
 

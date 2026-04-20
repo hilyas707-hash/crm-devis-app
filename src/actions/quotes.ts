@@ -30,6 +30,7 @@ type ItemInput = {
 
 export async function createQuote(data: {
   title?: string;
+  introText?: string;
   clientId: string;
   clientRef?: string;
   issueDate: string;
@@ -54,6 +55,7 @@ export async function createQuote(data: {
     data: {
       number,
       title: data.title || null,
+      introText: data.introText || null,
       clientId: data.clientId,
       clientRef: data.clientRef || null,
       companyId,
@@ -93,6 +95,7 @@ export async function updateQuote(
   id: string,
   data: {
     title?: string;
+    introText?: string;
     clientId: string;
     clientRef?: string;
     issueDate: string;
@@ -119,6 +122,7 @@ export async function updateQuote(
       where: { id, companyId },
       data: {
         title: data.title || null,
+        introText: data.introText || null,
         clientId: data.clientId,
         clientRef: data.clientRef || null,
         issueDate: new Date(data.issueDate),

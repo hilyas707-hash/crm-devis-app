@@ -232,6 +232,7 @@ model Quote {
   number       String         @unique
   status       String         @default("DRAFT")
   title        String?
+  introText    String?
   notes        String?
   conditions   String?
   issueDate    DateTime       @default(now())

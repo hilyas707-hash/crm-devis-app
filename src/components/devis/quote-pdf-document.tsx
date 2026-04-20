@@ -33,6 +33,7 @@ export interface QuoteTemplate {
 export interface QuotePDFData {
   number: string;
   title?: string | null;
+  introText?: string | null;
   clientRef?: string | null;
   status: string;
   issueDate: Date | string;
@@ -244,6 +245,17 @@ export function QuotePDFDocument({
     },
     addrName: { fontSize: 10.5, fontFamily: bold, color: DARK, marginBottom: 3 },
     addrLine: { fontSize: 8.5, color: "#475569", lineHeight: 1.6 },
+
+    // ── Intro text (before table) ─────────────────────────────────────────────
+    introBox: {
+      marginBottom: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      backgroundColor: "#f8fafc",
+      borderRadius: 3,
+      borderLeft: `3px solid ${c}`,
+    },
+    introText: { fontSize: 9, color: "#334155", lineHeight: 1.65 },
 
     // ── Offer title ───────────────────────────────────────────────────────────
     offerTitle: {
@@ -541,6 +553,13 @@ export function QuotePDFDocument({
         {/* ══ OFFER TITLE ═════════════════════════════════════════════════════ */}
         {data.title && (
           <Text style={s.offerTitle}>Objet : {data.title}</Text>
+        )}
+
+        {/* ══ INTRO TEXT ══════════════════════════════════════════════════════ */}
+        {data.introText && (
+          <View style={s.introBox}>
+            <Text style={s.introText}>{data.introText}</Text>
+          </View>
         )}
 
         {/* ══ TABLE ═══════════════════════════════════════════════════════════ */}

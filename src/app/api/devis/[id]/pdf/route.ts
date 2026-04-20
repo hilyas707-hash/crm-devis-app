@@ -45,6 +45,7 @@ export async function GET(
   const data = {
     number: quote.number,
     title: quote.title,
+    introText: quote.introText,
     clientRef: quote.clientRef,
     status: quote.status,
     issueDate: quote.issueDate,

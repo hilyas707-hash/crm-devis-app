@@ -33,6 +33,7 @@ export default async function EditDevisPage({ params }: { params: Promise<{ id: 
 
   const defaultValues = {
     title: quote.title || undefined,
+    introText: quote.introText || undefined,
     clientId: quote.clientId,
     clientRef: quote.clientRef || undefined,
     issueDate: quote.issueDate.toISOString().split("T")[0],
