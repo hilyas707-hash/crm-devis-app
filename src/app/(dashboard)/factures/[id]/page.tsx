@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate, INVOICE_STATUS_LABELS } from "@/lib/utils";
-import { Send, CreditCard, FileText, Receipt } from "lucide-react";
+import { Send, CreditCard, FileText, Receipt, Edit } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { updateInvoiceStatus, addPayment } from "@/actions/invoices";
@@ -63,7 +63,12 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
               </p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            {invoice.status === "DRAFT" && (
+              <Button variant="outline" asChild>
+                <Link href={`/factures/${id}/edit`}><Edit className="h-4 w-4" /> Modifier</Link>
+              </Button>
+            )}
             {invoice.status === "DRAFT" && (
               <form action={updateInvoiceStatus.bind(null, id, "SENT")}>
                 <Button type="submit" variant="outline"><Send className="h-4 w-4" /> Marquer envoyée</Button>

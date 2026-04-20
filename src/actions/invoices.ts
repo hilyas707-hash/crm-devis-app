@@ -26,9 +26,22 @@ async function generateInvoiceNumber(companyId: string) {
   return number;
 }
 
-export async function createInvoice(data: {
+type InvoiceItemInput = {
+  description: string;
+  notes?: string;
+  quantity: number;
+  unit?: string;
+  unitPrice: number;
+  vatRate: number;
+  discount: number;
+  productId?: string;
+  sortOrder: number;
+};
+
+type InvoiceInput = {
   title?: string;
   clientId: string;
+  clientRef?: string;
   quoteId?: string;
   issueDate: string;
   dueDate?: string;
@@ -36,16 +49,10 @@ export async function createInvoice(data: {
   conditions?: string;
   discount: number;
   discountType: "PERCENT" | "FIXED";
-  items: Array<{
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    vatRate: number;
-    discount: number;
-    productId?: string;
-    sortOrder: number;
-  }>;
-}) {
+  items: InvoiceItemInput[];
+};
+
+export async function createInvoice(data: InvoiceInput) {
   const companyId = await getCompanyId();
   const number = await generateInvoiceNumber(companyId);
   const totals = calculateDocumentTotals(data.items, data.discount, data.discountType);
@@ -53,14 +60,15 @@ export async function createInvoice(data: {
   const invoice = await prisma.invoice.create({
     data: {
       number,
-      title: data.title,
+      title: data.title || null,
       clientId: data.clientId,
+      clientRef: data.clientRef || null,
       companyId,
       quoteId: data.quoteId || null,
       issueDate: new Date(data.issueDate),
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
-      notes: data.notes,
-      conditions: data.conditions,
+      notes: data.notes || null,
+      conditions: data.conditions || null,
       discount: data.discount,
       discountType: data.discountType,
       subtotal: totals.subtotal,
@@ -70,14 +78,15 @@ export async function createInvoice(data: {
       items: {
         create: data.items.map((item) => ({
           description: item.description,
+          notes: item.notes || null,
           quantity: item.quantity,
+          unit: item.unit || "unité",
           unitPrice: item.unitPrice,
           vatRate: item.vatRate,
           discount: item.discount,
           productId: item.productId || null,
           sortOrder: item.sortOrder,
-          total:
-            item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
+          total: item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
         })),
       },
     },
@@ -85,6 +94,49 @@ export async function createInvoice(data: {
 
   revalidatePath("/factures");
   redirect(`/factures/${invoice.id}`);
+}
+
+export async function updateInvoice(id: string, data: InvoiceInput) {
+  const companyId = await getCompanyId();
+  const totals = calculateDocumentTotals(data.items, data.discount, data.discountType);
+
+  await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
+
+  await prisma.invoice.update({
+    where: { id, companyId },
+    data: {
+      title: data.title || null,
+      clientId: data.clientId,
+      clientRef: data.clientRef || null,
+      issueDate: new Date(data.issueDate),
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      notes: data.notes || null,
+      conditions: data.conditions || null,
+      discount: data.discount,
+      discountType: data.discountType,
+      subtotal: totals.subtotal,
+      vatAmount: totals.vatAmount,
+      total: totals.total,
+      items: {
+        create: data.items.map((item) => ({
+          description: item.description,
+          notes: item.notes || null,
+          quantity: item.quantity,
+          unit: item.unit || "unité",
+          unitPrice: item.unitPrice,
+          vatRate: item.vatRate,
+          discount: item.discount,
+          productId: item.productId || null,
+          sortOrder: item.sortOrder,
+          total: item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
+        })),
+      },
+    },
+  });
+
+  revalidatePath(`/factures/${id}`);
+  revalidatePath("/factures");
+  redirect(`/factures/${id}`);
 }
 
 export async function updateInvoiceStatus(id: string, status: string) {
