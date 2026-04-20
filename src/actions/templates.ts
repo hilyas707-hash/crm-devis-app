@@ -32,6 +32,9 @@ export async function createTemplate(data: {
   showDelivery: boolean;
   currency: string;
   language: string;
+  headerImage?: string | null;
+  footerImage?: string | null;
+  attachments?: string | null;
 }) {
   const companyId = await getCompanyId();
 
@@ -43,7 +46,15 @@ export async function createTemplate(data: {
   }
 
   const tpl = await prisma.quoteTemplate.create({
-    data: { ...data, companyId, footer: data.footer || null, conditions: data.conditions || null },
+    data: {
+      ...data,
+      companyId,
+      footer: data.footer || null,
+      conditions: data.conditions || null,
+      headerImage: data.headerImage || null,
+      footerImage: data.footerImage || null,
+      attachments: data.attachments || null,
+    },
   });
 
   revalidatePath("/parametres");
@@ -70,6 +81,9 @@ export async function updateTemplate(id: string, data: {
   showDelivery: boolean;
   currency: string;
   language: string;
+  headerImage?: string | null;
+  footerImage?: string | null;
+  attachments?: string | null;
 }) {
   const companyId = await getCompanyId();
 
@@ -85,7 +99,14 @@ export async function updateTemplate(id: string, data: {
 
   await prisma.quoteTemplate.update({
     where: { id },
-    data: { ...data, footer: data.footer || null, conditions: data.conditions || null },
+    data: {
+      ...data,
+      footer: data.footer || null,
+      conditions: data.conditions || null,
+      headerImage: data.headerImage !== undefined ? (data.headerImage || null) : undefined,
+      footerImage: data.footerImage !== undefined ? (data.footerImage || null) : undefined,
+      attachments: data.attachments !== undefined ? (data.attachments || null) : undefined,
+    },
   });
 
   revalidatePath("/parametres");

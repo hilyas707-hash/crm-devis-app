@@ -13,7 +13,7 @@ import { PRESET_CONDITIONS } from "@/lib/quote-conditions";
 import {
   Plus, Trash2, Star, Check, Loader2, Upload, X, Palette, Type,
   FileText, CreditCard, Ruler, Tag, Globe, Clock, ChevronDown,
-  Percent, Settings2, Eye, Package, Image,
+  Percent, Settings2, Package, Image, Paperclip, AlignStartHorizontal, AlignEndHorizontal,
 } from "lucide-react";
 
 // ──────────────── Types ────────────────
@@ -24,9 +24,9 @@ export interface TemplateData {
   color: string;
   font: string;
   logo: string | null;
-  footer: string;       // empty string = no footer
+  footer: string;
   showBank: boolean;
-  conditions: string;   // empty string = no conditions
+  conditions: string;
   autoConditions: boolean;
   vatRates: string;
   paymentMethods: string;
@@ -38,6 +38,9 @@ export interface TemplateData {
   showDelivery: boolean;
   currency: string;
   language: string;
+  headerImage: string | null;
+  footerImage: string | null;
+  attachments: string; // JSON: [{name, data}]
 }
 
 // ──────────────── Valeurs par défaut ────────────────
@@ -61,6 +64,9 @@ const DEFAULT_TPL: Omit<TemplateData, "id"> = {
   showDelivery: false,
   currency: "EUR",
   language: "fr-BE",
+  headerImage: null,
+  footerImage: null,
+  attachments: "",
 };
 
 // ──────────────── Constantes UI ────────────────
@@ -176,6 +182,11 @@ function TemplateEditor({
   const [color, setColor] = useState(tpl?.color ?? "#2563eb");
   const [font, setFont] = useState(tpl?.font ?? "Helvetica");
   const [logo, setLogo] = useState<string | null>(tpl?.logo ?? null);
+  const [headerImage, setHeaderImage] = useState<string | null>(tpl?.headerImage ?? null);
+  const [footerImage, setFooterImage] = useState<string | null>(tpl?.footerImage ?? null);
+  const [attachments, setAttachments] = useState<{ name: string; data: string }[]>(
+    tpl?.attachments ? ((): { name: string; data: string }[] => { try { return JSON.parse(tpl.attachments); } catch { return []; } })() : []
+  );
   const [footer, setFooter] = useState(tpl?.footer ?? "");
   const [showBank, setShowBank] = useState(tpl?.showBank ?? true);
   const [conditions, setConditions] = useState(tpl?.conditions ?? "");
@@ -193,6 +204,9 @@ function TemplateEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const headerImgRef = useRef<HTMLInputElement>(null);
+  const footerImgRef = useRef<HTMLInputElement>(null);
+  const attachRef = useRef<HTMLInputElement>(null);
 
   function toggle(list: string[], set: (v: string[]) => void, v: string) {
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -208,10 +222,55 @@ function TemplateEditor({
       units: units.join(","),
       categories: categories.join(","),
       validityDays, showInternalRef, showClientRef, showDelivery, currency, language,
+      headerImage,
+      footerImage,
+      attachments: attachments.length > 0 ? JSON.stringify(attachments) : "",
     }, tpl?.id);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  }
+
+  function readImageFile(file: File, onResult: (b64: string) => void) {
+    const reader = new FileReader();
+    reader.onload = (ev) => onResult(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  function handleHeaderImgFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    readImageFile(file, setHeaderImage);
+  }
+
+  function handleFooterImgFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    readImageFile(file, setFooterImage);
+  }
+
+  function handleAttachFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    files.forEach((file) => {
+      readImageFile(file, (data) => {
+        setAttachments((prev) => [...prev, { name: file.name, data }]);
+      });
+    });
+    e.target.value = "";
+  }
+
+  function removeAttachment(idx: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function moveAttachment(idx: number, dir: -1 | 1) {
+    setAttachments((prev) => {
+      const arr = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= arr.length) return arr;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      return arr;
+    });
   }
 
   function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -284,6 +343,7 @@ function TemplateEditor({
         <TabsList className="w-full">
           <TabsTrigger value="visuel" className="flex-1"><Palette className="h-3.5 w-3.5 mr-1" />Visuel</TabsTrigger>
           <TabsTrigger value="contenu" className="flex-1"><FileText className="h-3.5 w-3.5 mr-1" />Contenu</TabsTrigger>
+          <TabsTrigger value="pieces" className="flex-1"><Paperclip className="h-3.5 w-3.5 mr-1" />Pièces jointes</TabsTrigger>
           <TabsTrigger value="preferences" className="flex-1"><Settings2 className="h-3.5 w-3.5 mr-1" />Préférences</TabsTrigger>
         </TabsList>
 
@@ -350,8 +410,66 @@ function TemplateEditor({
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
           </div>
 
+          {/* ── Bannière entête ── */}
           <div className="space-y-2">
-            <Label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Pied de page</Label>
+            <Label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide flex items-center gap-1.5">
+              <AlignStartHorizontal className="h-3.5 w-3.5" /> Bannière entête (haut du PDF)
+            </Label>
+            <p className="text-[10px] text-[var(--muted-foreground)]">Image pleine largeur affichée tout en haut de chaque page du document.</p>
+            {headerImage ? (
+              <div className="space-y-2">
+                <img src={headerImage} alt="Entête" className="w-full h-16 object-cover rounded border border-[var(--border)]" />
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => headerImgRef.current?.click()}>
+                    <Upload className="h-3 w-3" /> Changer
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" className="text-red-600 border-red-200"
+                    onClick={() => setHeaderImage(null)}>
+                    <Trash2 className="h-3 w-3" /> Supprimer
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => headerImgRef.current?.click()}
+                className="w-full border-2 border-dashed border-[var(--border)] rounded-lg p-4 text-center hover:border-[var(--primary)] transition-colors flex items-center justify-center gap-2">
+                <AlignStartHorizontal className="h-4 w-4 text-[var(--muted-foreground)]" />
+                <span className="text-xs font-medium text-[var(--muted-foreground)]">Uploader une bannière entête — PNG, JPG</span>
+              </button>
+            )}
+            <input ref={headerImgRef} type="file" accept="image/*" className="hidden" onChange={handleHeaderImgFile} />
+          </div>
+
+          {/* ── Image bas de page ── */}
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide flex items-center gap-1.5">
+              <AlignEndHorizontal className="h-3.5 w-3.5" /> Image bas de page (fixe sur chaque page)
+            </Label>
+            <p className="text-[10px] text-[var(--muted-foreground)]">Image affichée en bas de chaque page (signature, cachet, footer graphique…).</p>
+            {footerImage ? (
+              <div className="space-y-2">
+                <img src={footerImage} alt="Bas de page" className="w-full h-14 object-cover rounded border border-[var(--border)]" />
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => footerImgRef.current?.click()}>
+                    <Upload className="h-3 w-3" /> Changer
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" className="text-red-600 border-red-200"
+                    onClick={() => setFooterImage(null)}>
+                    <Trash2 className="h-3 w-3" /> Supprimer
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => footerImgRef.current?.click()}
+                className="w-full border-2 border-dashed border-[var(--border)] rounded-lg p-4 text-center hover:border-[var(--primary)] transition-colors flex items-center justify-center gap-2">
+                <AlignEndHorizontal className="h-4 w-4 text-[var(--muted-foreground)]" />
+                <span className="text-xs font-medium text-[var(--muted-foreground)]">Uploader une image bas de page — PNG, JPG</span>
+              </button>
+            )}
+            <input ref={footerImgRef} type="file" accept="image/*" className="hidden" onChange={handleFooterImgFile} />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Texte pied de page</Label>
             <Input value={footer} onChange={(e) => setFooter(e.target.value)} placeholder="Texte en bas de chaque page du PDF" />
           </div>
 
@@ -382,6 +500,56 @@ function TemplateEditor({
           </div>
           <Textarea value={conditions} onChange={(e) => setConditions(e.target.value)}
             rows={10} placeholder="Conditions de vente par défaut…" className="text-xs leading-relaxed" />
+        </TabsContent>
+
+        {/* ── Pièces jointes ── */}
+        <TabsContent value="pieces" className="space-y-4 mt-4">
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 p-3 text-xs text-[var(--muted-foreground)] space-y-1">
+            <p className="font-semibold text-[var(--foreground)]">Documents annexés au PDF</p>
+            <p>Ces pages sont ajoutées <strong>après le devis</strong> dans le PDF généré. Idéal pour les conditions générales de vente, fiches techniques, tarifs, etc.</p>
+            <p>Formats acceptés : <strong>PNG, JPG</strong> (une image = une page). Pour un PDF, convertissez chaque page en image avant de l'uploader.</p>
+          </div>
+
+          {/* Liste des pièces jointes */}
+          {attachments.length > 0 && (
+            <div className="space-y-2">
+              {attachments.map((att, idx) => (
+                <div key={idx} className="flex items-center gap-3 p-2.5 rounded-lg border border-[var(--border)] bg-white">
+                  <img src={att.data} alt={att.name} className="h-12 w-16 object-cover rounded border border-[var(--border)] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{att.name}</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">Page {idx + 1}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button type="button" onClick={() => moveAttachment(idx, -1)} disabled={idx === 0}
+                      className="p-1.5 rounded hover:bg-[var(--muted)] disabled:opacity-30 transition-colors" title="Monter">
+                      ↑
+                    </button>
+                    <button type="button" onClick={() => moveAttachment(idx, 1)} disabled={idx === attachments.length - 1}
+                      className="p-1.5 rounded hover:bg-[var(--muted)] disabled:opacity-30 transition-colors" title="Descendre">
+                      ↓
+                    </button>
+                    <button type="button" onClick={() => removeAttachment(idx)}
+                      className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors" title="Supprimer">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button type="button" onClick={() => attachRef.current?.click()}
+            className="w-full border-2 border-dashed border-[var(--border)] rounded-lg p-5 text-center hover:border-[var(--primary)] transition-colors">
+            <Paperclip className="h-5 w-5 mx-auto mb-1.5 text-[var(--muted-foreground)]" />
+            <p className="text-xs font-medium">Ajouter des pages (images)</p>
+            <p className="text-[10px] text-[var(--muted-foreground)]">PNG, JPG — plusieurs fichiers acceptés</p>
+          </button>
+          <input ref={attachRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
+
+          {attachments.length === 0 && (
+            <p className="text-center text-xs text-[var(--muted-foreground)] py-2">Aucune pièce jointe pour ce template</p>
+          )}
         </TabsContent>
 
         {/* ── Préférences ── */}

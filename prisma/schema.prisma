@@ -217,6 +217,9 @@ model QuoteTemplate {
   showDelivery   Boolean  @default(false)
   currency       String   @default("EUR")
   language       String   @default("fr-BE")
+  headerImage    String?  // base64 — bannière pleine largeur en haut du PDF
+  footerImage    String?  // base64 — image fixe en bas de chaque page
+  attachments    String?  // JSON: [{name, data}] — pages supplémentaires
   quotes         Quote[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

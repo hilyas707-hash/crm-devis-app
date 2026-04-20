@@ -35,6 +35,9 @@ export async function GET(
     logo: invoice.company.tplLogo,
     footer: invoice.company.tplFooter,
     showBank: invoice.company.tplShowBank,
+    headerImage: null,
+    footerImage: null,
+    attachments: null,
   };
 
   const data = {

@@ -30,6 +30,9 @@ export interface QuoteTemplate {
   logo: string | null;
   footer: string | null;
   showBank: boolean;
+  headerImage?: string | null;
+  footerImage?: string | null;
+  attachments?: string | null; // JSON: [{name: string, data: string}]
 }
 
 export interface QuotePDFData {
@@ -86,8 +89,28 @@ function makeStyles(tpl: QuoteTemplate) {
       ? "Courier-Bold"
       : "Helvetica-Bold";
 
+  const hasHeaderImg = !!tpl.headerImage;
+  const hasFooterImg = !!tpl.footerImage;
+
   return StyleSheet.create({
-    page: { fontFamily: tpl.font, fontSize: 10, color: "#1e293b", padding: 40, paddingBottom: 60 },
+    page: {
+      fontFamily: tpl.font,
+      fontSize: 10,
+      color: "#1e293b",
+      paddingTop: hasHeaderImg ? 0 : 40,
+      paddingBottom: hasFooterImg ? 90 : 60,
+      paddingHorizontal: 40,
+    },
+    headerImg: { width: "120%", marginLeft: -40, marginRight: -40, height: 90, objectFit: "cover", marginBottom: 20 },
+    footerImg: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      width: "100%",
+      height: 70,
+      objectFit: "cover",
+    },
     header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 28 },
     logoImg: { height: 48, maxWidth: 160, objectFit: "contain", marginBottom: 6 },
     companyName: { fontSize: 16, fontFamily: boldFont, color: tpl.color },
@@ -147,11 +170,19 @@ function makeStyles(tpl: QuoteTemplate) {
     bankLabel: { fontSize: 8, fontFamily: boldFont, color: tpl.color, textTransform: "uppercase", marginBottom: 3 },
     bankText: { fontSize: 9, color: "#0c4a6e" },
     footer: {
-      position: "absolute", bottom: 20, left: 40, right: 40,
+      position: "absolute",
+      bottom: hasFooterImg ? 76 : 20,
+      left: 40, right: 40,
       borderTop: "1px solid #e2e8f0", paddingTop: 7,
       flexDirection: "row", justifyContent: "space-between",
     },
     footerText: { fontSize: 8, color: "#94a3b8" },
+    attachPage: { padding: 0 },
+    attachImg: { width: "100%", height: "100%", objectFit: "contain" },
+    attachLabel: {
+      position: "absolute", bottom: 10, left: 0, right: 0,
+      textAlign: "center", fontSize: 8, color: "#94a3b8",
+    },
   });
 }
 
@@ -168,11 +199,23 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
     template.footer ||
     `${data.company.name}${data.company.vatNumber ? " \u2014 TVA: " + data.company.vatNumber : ""}`;
 
+  // Parse attachments
+  let attachmentPages: { name: string; data: string }[] = [];
+  if (template.attachments) {
+    try { attachmentPages = JSON.parse(template.attachments); } catch {}
+  }
+
   return (
     <Document title={`${docType} ${data.number}`} author={data.company.name}>
+      {/* ── Page principale ── */}
       <Page size="A4" style={s.page}>
 
-        {/* Header */}
+        {/* Bannière entête */}
+        {template.headerImage && (
+          <Image style={s.headerImg} src={template.headerImage} />
+        )}
+
+        {/* Header société + titre doc */}
         <View style={s.header}>
           <View>
             {template.logo ? (
@@ -293,7 +336,7 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
           </View>
         )}
 
-        {/* Banking info */}
+        {/* Coordonnées bancaires */}
         {template.showBank && (data.company.iban || data.company.bic) && (
           <View style={s.bankBox}>
             <Text style={s.bankLabel}>Coordonnées bancaires</Text>
@@ -302,13 +345,26 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
           </View>
         )}
 
-        {/* Footer */}
+        {/* Footer texte */}
         <View style={s.footer} fixed>
           <Text style={s.footerText}>{footerText}</Text>
           <Text style={s.footerText}>{docType} {data.number}</Text>
           <Text style={s.footerText} render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`} />
         </View>
+
+        {/* Image bas de page */}
+        {template.footerImage && (
+          <Image style={s.footerImg} src={template.footerImage} fixed />
+        )}
       </Page>
+
+      {/* ── Pages pièces jointes ── */}
+      {attachmentPages.map((att, i) => (
+        <Page key={i} size="A4" style={s.attachPage}>
+          <Image style={s.attachImg} src={att.data} />
+          <Text style={s.attachLabel}>{att.name}</Text>
+        </Page>
+      ))}
     </Document>
   );
 }

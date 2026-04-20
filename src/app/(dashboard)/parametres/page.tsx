@@ -213,6 +213,9 @@ export default async function ParametresPage({ searchParams }: { searchParams: P
                 showDelivery: t.showDelivery,
                 currency: t.currency,
                 language: t.language,
+                headerImage: t.headerImage ?? null,
+                footerImage: t.footerImage ?? null,
+                attachments: t.attachments ?? "",
               }))}
               companyName={company.name}
             />

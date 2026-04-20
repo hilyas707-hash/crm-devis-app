@@ -37,6 +37,9 @@ export async function GET(
     logo: tpl?.logo ?? quote.company.tplLogo,
     footer: tpl?.footer ?? quote.company.tplFooter,
     showBank: tpl?.showBank ?? quote.company.tplShowBank,
+    headerImage: tpl?.headerImage ?? null,
+    footerImage: tpl?.footerImage ?? null,
+    attachments: tpl?.attachments ?? null,
   };
 
   const data = {
