@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           image: user.image,
           role: user.role,
-          companyId: user.companyId,
+          companyId: user.activeCompanyId ?? user.companyId,
         };
       },
     }),
@@ -51,10 +51,16 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token.sub) {
+        // Re-read activeCompanyId from DB on each session check so switching
+        // companies takes effect immediately without re-login.
+        const user = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { activeCompanyId: true, companyId: true, role: true },
+        });
         (session.user as any).id = token.sub;
-        (session.user as any).role = token.role;
-        (session.user as any).companyId = token.companyId;
+        (session.user as any).role = user?.role ?? token.role;
+        (session.user as any).companyId = user?.activeCompanyId ?? user?.companyId;
       }
       return session;
     },

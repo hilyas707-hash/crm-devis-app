@@ -10,15 +10,17 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { updateCompany } from "@/actions/company";
 import { QuoteTemplateManager } from "@/components/settings/quote-template-manager";
 import { SmtpConfig } from "@/components/settings/smtp-config";
+import { CompaniesManager } from "@/components/settings/companies-manager";
 import { redirect } from "next/navigation";
-import { Building2, LayoutTemplate, Mail } from "lucide-react";
+import { Building2, LayoutTemplate, Mail, Briefcase } from "lucide-react";
 
-export default async function ParametresPage() {
+export default async function ParametresPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await getServerSession(authOptions);
   const companyId = (session?.user as any)?.companyId;
   const userId = (session?.user as any)?.id;
+  const { tab } = await searchParams;
 
-  const [company, templates, currentUser] = await Promise.all([
+  const [company, templates, currentUser, primaryUser, userCompanies] = await Promise.all([
     prisma.company.findUnique({ where: { id: companyId }, select: {
       id: true, name: true, email: true, phone: true, address: true, city: true,
       postalCode: true, country: true, vatNumber: true, website: true, iban: true, bic: true,
@@ -30,8 +32,22 @@ export default async function ParametresPage() {
     }),
     prisma.user.findUnique({ where: { id: userId }, select: {
       emailMode: true, smtpHost: true, smtpPort: true, smtpUser: true, smtpPass: true, smtpSecure: true, smtpFrom: true,
+      companyId: true,
     }}),
+    prisma.user.findUnique({ where: { id: userId }, select: { companyId: true, company: { select: { id: true, name: true, email: true, phone: true } } } }),
+    prisma.userCompany.findMany({ where: { userId }, include: { company: { select: { id: true, name: true, email: true, phone: true } } }, orderBy: { createdAt: "asc" } }),
   ]);
+
+  // Build companies list for the manager
+  const allCompanies: { id: string; name: string; email?: string | null; phone?: string | null; isPrimary: boolean }[] = [];
+  if (primaryUser?.company) {
+    allCompanies.push({ ...primaryUser.company, isPrimary: true });
+  }
+  for (const uc of userCompanies) {
+    if (!allCompanies.find((c) => c.id === uc.companyId)) {
+      allCompanies.push({ ...uc.company, isPrimary: false });
+    }
+  }
 
   if (!company) redirect("/login");
 
@@ -39,11 +55,15 @@ export default async function ParametresPage() {
     <div>
       <Header title="Paramètres" />
       <div className="p-4 md:p-6 max-w-5xl">
-        <Tabs defaultValue="entreprise">
+        <Tabs defaultValue={tab ?? "entreprise"}>
           <TabsList className="mb-6">
             <TabsTrigger value="entreprise">
               <Building2 className="h-4 w-4 mr-1" />
               Entreprise
+            </TabsTrigger>
+            <TabsTrigger value="entreprises">
+              <Briefcase className="h-4 w-4 mr-1" />
+              Mes entreprises
             </TabsTrigger>
             <TabsTrigger value="editeur">
               <LayoutTemplate className="h-4 w-4 mr-1" />
@@ -146,6 +166,14 @@ export default async function ParametresPage() {
 
               <Button type="submit">Enregistrer les paramètres</Button>
             </form>
+          </TabsContent>
+
+          {/* ── Onglet Mes entreprises ── */}
+          <TabsContent value="entreprises">
+            <CompaniesManager
+              companies={allCompanies}
+              activeCompanyId={companyId ?? ""}
+            />
           </TabsContent>
 
           {/* ── Onglet Email ── */}

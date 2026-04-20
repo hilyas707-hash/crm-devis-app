@@ -21,14 +21,16 @@ model User {
   sessions      Session[]
   activities    Activity[]
   // Email personnel de l'utilisateur
-  smtpHost      String?
-  smtpPort      Int?
-  smtpUser      String?
-  smtpPass      String?
-  smtpSecure    Boolean    @default(false)
-  smtpFrom      String?
-  emailMode     String     @default("SMTP")
-  createdAt     DateTime   @default(now())
+  smtpHost        String?
+  smtpPort        Int?
+  smtpUser        String?
+  smtpPass        String?
+  smtpSecure      Boolean    @default(false)
+  smtpFrom        String?
+  emailMode       String     @default("SMTP")
+  activeCompanyId String?
+  companies       UserCompany[]
+  createdAt       DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }
 
@@ -111,6 +113,7 @@ model Company {
   smtpSecure        Boolean   @default(false)
   smtpFrom          String?
   users             User[]
+  members           UserCompany[]
   clients           Client[]
   products          Product[]
   quotes            Quote[]
@@ -118,6 +121,17 @@ model Company {
   quoteTemplates    QuoteTemplate[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+}
+
+model UserCompany {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      String   @default("OWNER")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([userId, companyId])
 }
 
 model Client {
