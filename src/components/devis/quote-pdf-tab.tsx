@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,12 +18,14 @@ interface QuotePDFTabProps {
   companyName: string;
   total: number;
   emailMode?: "SMTP" | "MAILTO";
-  updatedAt: string; // cache-bust: changes on every save
+  updatedAt?: string;
 }
 
 export function QuotePDFTab({
-  quoteId, quoteNumber, clientEmail, companyName, total, emailMode = "SMTP", updatedAt,
+  quoteId, quoteNumber, clientEmail, companyName, total, emailMode = "SMTP",
 }: QuotePDFTabProps) {
+  // Unique par montage → force le rechargement du PDF à chaque visite de la page
+  const mountKey = useRef(Date.now()).current;
   const [activeView, setActiveView] = useState<"preview" | "email">("preview");
   const [emailTo, setEmailTo] = useState(clientEmail || "");
   const [subject, setSubject] = useState(`Devis ${quoteNumber} — ${companyName}`);
@@ -33,7 +35,7 @@ export function QuotePDFTab({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const pdfUrl = `/api/devis/${quoteId}/pdf?t=${encodeURIComponent(updatedAt)}`;
+  const pdfUrl = `/api/devis/${quoteId}/pdf?t=${mountKey}`;
 
   async function handleSmtpSend() {
     if (!emailTo) return;

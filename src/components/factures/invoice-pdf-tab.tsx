@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ interface InvoicePDFTabProps {
 export function InvoicePDFTab({
   invoiceId, invoiceNumber, clientEmail, companyName, total, emailMode = "SMTP",
 }: InvoicePDFTabProps) {
+  const mountKey = useRef(Date.now()).current;
   const [activeView, setActiveView] = useState<"preview" | "email">("preview");
   const [emailTo, setEmailTo] = useState(clientEmail || "");
   const [subject, setSubject] = useState(`Facture ${invoiceNumber} — ${companyName}`);
@@ -32,7 +33,7 @@ export function InvoicePDFTab({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const pdfUrl = `/api/factures/${invoiceId}/pdf`;
+  const pdfUrl = `/api/factures/${invoiceId}/pdf?t=${mountKey}`;
 
   async function handleSmtpSend() {
     if (!emailTo) return;
