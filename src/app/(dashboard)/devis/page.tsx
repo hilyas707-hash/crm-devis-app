@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SearchFilter } from "@/components/ui/search-filter";
 import { formatCurrency, formatDate, QUOTE_STATUS_LABELS } from "@/lib/utils";
-import { Plus, FileText, Users, Clock, CheckCircle, XCircle, Send, Receipt } from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle, XCircle, Send, Receipt, Building2 } from "lucide-react";
 import Link from "next/link";
 
 const STATUS_OPTIONS = [
@@ -32,13 +32,30 @@ const badgeVariant: Record<string, any> = {
 export default async function DevisPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; status?: string }>;
+  searchParams: Promise<{ search?: string; status?: string; company?: string }>;
 }) {
-  const { search = "", status = "" } = await searchParams;
+  const { search = "", status = "", company: companyFilter = "" } = await searchParams;
   const session = await getServerSession(authOptions);
-  const companyId = (session?.user as any)?.companyId;
+  const activeCompanyId = (session?.user as any)?.companyId;
+  const userId = (session?.user as any)?.id;
 
-  const where: any = { companyId };
+  // Charge toutes les entreprises accessibles
+  const [primaryUser, userCompanies] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { companyId: true, company: { select: { id: true, name: true } } } }),
+    prisma.userCompany.findMany({ where: { userId }, include: { company: { select: { id: true, name: true } } }, orderBy: { createdAt: "asc" } }),
+  ]);
+
+  const allCompanies: { id: string; name: string }[] = [];
+  if (primaryUser?.company) allCompanies.push(primaryUser.company);
+  for (const uc of userCompanies) {
+    if (!allCompanies.find((c) => c.id === uc.companyId)) allCompanies.push(uc.company);
+  }
+
+  // Entreprise sélectionnée pour le filtre (par défaut = active)
+  const selectedCompanyId = companyFilter || activeCompanyId;
+  const companyIds = allCompanies.map((c) => c.id);
+
+  const where: any = { companyId: selectedCompanyId };
   if (status) where.status = status;
   if (search) where.OR = [
     { number: { contains: search, mode: "insensitive" } },
@@ -54,7 +71,7 @@ export default async function DevisPage({
     }),
     prisma.quote.groupBy({
       by: ["status"],
-      where: { companyId },
+      where: { companyId: selectedCompanyId },
       _count: true,
       _sum: { total: true },
     }),
@@ -66,6 +83,36 @@ export default async function DevisPage({
     <div>
       <Header title="Devis" />
       <div className="p-4 md:p-6 space-y-5">
+
+        {/* Company selector — visible only if multiple companies */}
+        {allCompanies.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {allCompanies.map((c) => {
+              const isSelected = c.id === selectedCompanyId;
+              const params = new URLSearchParams();
+              if (search) params.set("search", search);
+              if (status) params.set("status", status);
+              params.set("company", c.id);
+              return (
+                <Link
+                  key={c.id}
+                  href={`/devis?${params.toString()}`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium border transition-all ${
+                    isSelected
+                      ? "bg-blue-500/10 border-blue-500/40 text-blue-400"
+                      : "border-white/10 text-slate-400 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  <Building2 className="h-3.5 w-3.5 shrink-0" />
+                  {c.name}
+                  {c.id === activeCompanyId && (
+                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full leading-none">active</span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* Stats bar */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
