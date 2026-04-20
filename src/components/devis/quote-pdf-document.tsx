@@ -101,7 +101,28 @@ function makeStyles(tpl: QuoteTemplate) {
       paddingBottom: hasFooterImg ? 90 : 60,
       paddingHorizontal: 40,
     },
-    headerImg: { width: "120%", marginLeft: -40, marginRight: -40, height: 90, objectFit: "cover", marginBottom: 20 },
+    // Bannière entête avec texte superposé
+    headerBanner: { position: "relative", height: 110, marginLeft: -40, marginRight: -40, marginBottom: 24 },
+    headerBannerImg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%", objectFit: "cover" },
+    headerBannerDim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.38)" },
+    headerBannerContent: {
+      position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+      flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+      paddingHorizontal: 40, paddingVertical: 12,
+    },
+    headerBannerLogo: { height: 40, maxWidth: 130, objectFit: "contain", marginBottom: 5 },
+    headerBannerName: { fontSize: 15, fontFamily: boldFont, color: "#ffffff" },
+    headerBannerInfo: { fontSize: 8, color: "rgba(255,255,255,0.80)", marginTop: 2 },
+    headerBannerTitle: { fontSize: 26, fontFamily: boldFont, color: "#ffffff" },
+    headerBannerNumber: { fontSize: 13, color: "rgba(255,255,255,0.90)", marginTop: 3 },
+    headerBannerSub: { fontSize: 9, color: "rgba(255,255,255,0.75)", marginTop: 3 },
+    headerBannerBadge: {
+      marginTop: 6, alignSelf: "flex-end",
+      backgroundColor: "rgba(255,255,255,0.20)",
+      color: "#ffffff",
+      paddingHorizontal: 8, paddingVertical: 3,
+      borderRadius: 4, fontSize: 9, fontFamily: boldFont,
+    },
     footerImg: {
       position: "absolute",
       bottom: 0,
@@ -210,35 +231,57 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
       {/* ── Page principale ── */}
       <Page size="A4" style={s.page}>
 
-        {/* Bannière entête */}
-        {template.headerImage && (
-          <Image style={s.headerImg} src={template.headerImage} />
-        )}
-
-        {/* Header société + titre doc */}
-        <View style={s.header}>
-          <View>
-            {template.logo ? (
-              <Image style={s.logoImg} src={template.logo} />
-            ) : null}
-            <Text style={s.companyName}>{data.company.name}</Text>
-            {data.company.address && <Text style={s.companyInfo}>{data.company.address}</Text>}
-            {data.company.city && (
-              <Text style={s.companyInfo}>{data.company.postalCode} {data.company.city}</Text>
-            )}
-            {data.company.phone && <Text style={s.companyInfo}>Tél : {data.company.phone}</Text>}
-            {data.company.email && <Text style={s.companyInfo}>{data.company.email}</Text>}
-            {data.company.vatNumber && <Text style={s.companyInfo}>TVA : {data.company.vatNumber}</Text>}
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={s.docTitle}>{docType}</Text>
-            <Text style={s.docNumber}>{data.number}</Text>
-            {data.title && <Text style={s.docSub}>{data.title}</Text>}
-            <View style={s.badge}>
-              <Text>{STATUS_LABELS[data.status] || data.status}</Text>
+        {/* ── Entête : avec bannière (texte superposé) ou sans ── */}
+        {template.headerImage ? (
+          <View style={s.headerBanner}>
+            {/* Image de fond */}
+            <Image style={s.headerBannerImg} src={template.headerImage} />
+            {/* Voile sombre pour lisibilité */}
+            <View style={s.headerBannerDim} />
+            {/* Contenu superposé */}
+            <View style={s.headerBannerContent}>
+              {/* Gauche : logo + infos société */}
+              <View>
+                {template.logo && <Image style={s.headerBannerLogo} src={template.logo} />}
+                <Text style={s.headerBannerName}>{data.company.name}</Text>
+                {data.company.address && <Text style={s.headerBannerInfo}>{data.company.address}</Text>}
+                {data.company.city && <Text style={s.headerBannerInfo}>{data.company.postalCode} {data.company.city}</Text>}
+                {data.company.phone && <Text style={s.headerBannerInfo}>Tél : {data.company.phone}</Text>}
+                {data.company.vatNumber && <Text style={s.headerBannerInfo}>TVA : {data.company.vatNumber}</Text>}
+              </View>
+              {/* Droite : titre doc + numéro */}
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={s.headerBannerTitle}>{docType}</Text>
+                <Text style={s.headerBannerNumber}>{data.number}</Text>
+                {data.title && <Text style={s.headerBannerSub}>{data.title}</Text>}
+                <View style={s.headerBannerBadge}>
+                  <Text>{STATUS_LABELS[data.status] || data.status}</Text>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
+        ) : (
+          /* Entête classique sans bannière */
+          <View style={s.header}>
+            <View>
+              {template.logo && <Image style={s.logoImg} src={template.logo} />}
+              <Text style={s.companyName}>{data.company.name}</Text>
+              {data.company.address && <Text style={s.companyInfo}>{data.company.address}</Text>}
+              {data.company.city && <Text style={s.companyInfo}>{data.company.postalCode} {data.company.city}</Text>}
+              {data.company.phone && <Text style={s.companyInfo}>Tél : {data.company.phone}</Text>}
+              {data.company.email && <Text style={s.companyInfo}>{data.company.email}</Text>}
+              {data.company.vatNumber && <Text style={s.companyInfo}>TVA : {data.company.vatNumber}</Text>}
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={s.docTitle}>{docType}</Text>
+              <Text style={s.docNumber}>{data.number}</Text>
+              {data.title && <Text style={s.docSub}>{data.title}</Text>}
+              <View style={s.badge}>
+                <Text>{STATUS_LABELS[data.status] || data.status}</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Info boxes */}
         <View style={s.infoGrid}>
