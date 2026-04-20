@@ -221,6 +221,7 @@ model Quote {
   total        Float          @default(0)
   discount     Float          @default(0)
   discountType String         @default("PERCENT")
+  clientRef    String?
   clientId     String
   client       Client         @relation(fields: [clientId], references: [id])
   companyId    String
@@ -237,7 +238,9 @@ model Quote {
 model QuoteItem {
   id          String   @id @default(cuid())
   description String
+  notes       String?
   quantity    Float    @default(1)
+  unit        String   @default("unité")
   unitPrice   Float
   vatRate     Float    @default(21)
   discount    Float    @default(0)
@@ -263,6 +266,7 @@ model Invoice {
   total        Float         @default(0)
   discount     Float         @default(0)
   discountType String        @default("PERCENT")
+  clientRef    String?
   paidAmount   Float         @default(0)
   clientId     String
   client       Client        @relation(fields: [clientId], references: [id])
@@ -280,7 +284,9 @@ model Invoice {
 model InvoiceItem {
   id          String   @id @default(cuid())
   description String
+  notes       String?
   quantity    Float    @default(1)
+  unit        String   @default("unité")
   unitPrice   Float
   vatRate     Float    @default(21)
   discount    Float    @default(0)

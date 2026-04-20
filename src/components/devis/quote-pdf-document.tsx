@@ -35,6 +35,7 @@ export interface QuoteTemplate {
 export interface QuotePDFData {
   number: string;
   title?: string | null;
+  clientRef?: string | null;
   status: string;
   issueDate: Date | string;
   validUntil?: Date | string | null;
@@ -43,10 +44,13 @@ export interface QuotePDFData {
   subtotal: number;
   vatAmount: number;
   discount: number;
+  discountType?: string;
   total: number;
   items: {
     description: string;
+    notes?: string | null;
     quantity: number;
+    unit?: string | null;
     unitPrice: number;
     vatRate: number;
     discount: number;
@@ -115,11 +119,13 @@ function makeStyles(tpl: QuoteTemplate) {
     thText: { fontSize: 8, fontFamily: boldFont, color: "#fff" },
     tdText: { fontSize: 9 },
     colDesc: { flex: 3 },
-    colQty: { flex: 1, textAlign: "right" },
+    colQty: { flex: 0.8, textAlign: "right" },
+    colUnit: { flex: 1, textAlign: "left", paddingLeft: 4 },
     colPrice: { flex: 1.5, textAlign: "right" },
-    colVat: { flex: 1, textAlign: "right" },
-    colDisc: { flex: 1, textAlign: "right" },
+    colVat: { flex: 0.8, textAlign: "right" },
+    colDisc: { flex: 0.8, textAlign: "right" },
     colTotal: { flex: 1.5, textAlign: "right" },
+    itemNotes: { fontSize: 8, color: "#64748b", marginTop: 2, fontStyle: "italic" },
     totalsBox: { alignSelf: "flex-end", width: 230, marginTop: 14 },
     totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
     totalLabel: { fontSize: 9, color: "#64748b" },
@@ -212,6 +218,12 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
                 <Text style={s.infoValue}>{fmtDate(data.validUntil)}</Text>
               </>
             )}
+            {data.clientRef && (
+              <>
+                <Text style={[s.infoLabel, { marginTop: 8 }]}>Réf. client</Text>
+                <Text style={s.infoValue}>{data.clientRef}</Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -219,6 +231,7 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
         <View style={s.tableHeader}>
           <Text style={[s.thText, s.colDesc]}>Description</Text>
           <Text style={[s.thText, s.colQty]}>Qté</Text>
+          <Text style={[s.thText, s.colUnit]}>Unité</Text>
           <Text style={[s.thText, s.colPrice]}>Prix HT</Text>
           <Text style={[s.thText, s.colVat]}>TVA</Text>
           <Text style={[s.thText, s.colDisc]}>Rem.</Text>
@@ -227,8 +240,12 @@ export function QuotePDFDocument({ data, template, docType = "DEVIS" }: { data: 
 
         {data.items.map((item, idx) => (
           <View key={idx} style={[s.tableRow, idx % 2 === 1 ? s.tableRowEven : {}]}>
-            <Text style={[s.tdText, s.colDesc]}>{item.description}</Text>
+            <View style={s.colDesc}>
+              <Text style={s.tdText}>{item.description}</Text>
+              {item.notes ? <Text style={s.itemNotes}>{item.notes}</Text> : null}
+            </View>
             <Text style={[s.tdText, s.colQty]}>{item.quantity}</Text>
+            <Text style={[s.tdText, s.colUnit]}>{item.unit || "unité"}</Text>
             <Text style={[s.tdText, s.colPrice]}>{fmt(item.unitPrice)}</Text>
             <Text style={[s.tdText, s.colVat]}>{item.vatRate}%</Text>
             <Text style={[s.tdText, s.colDisc]}>{item.discount > 0 ? `${item.discount}%` : "\u2014"}</Text>

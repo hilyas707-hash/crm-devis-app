@@ -38,6 +38,7 @@ export async function GET(
   const data = {
     number: invoice.number,
     title: invoice.title,
+    clientRef: invoice.clientRef,
     status: invoice.status,
     issueDate: invoice.issueDate,
     validUntil: invoice.dueDate,
@@ -46,10 +47,13 @@ export async function GET(
     subtotal: invoice.subtotal,
     vatAmount: invoice.vatAmount,
     discount: invoice.discount,
+    discountType: invoice.discountType,
     total: invoice.total,
     items: invoice.items.map((item) => ({
       description: item.description,
+      notes: item.notes,
       quantity: item.quantity,
+      unit: item.unit,
       unitPrice: item.unitPrice,
       vatRate: item.vatRate,
       discount: item.discount,

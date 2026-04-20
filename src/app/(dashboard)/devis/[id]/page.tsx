@@ -120,6 +120,12 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
                       <p className="font-medium">{formatDate(quote.validUntil)}</p>
                     </>
                   )}
+                  {quote.clientRef && (
+                    <>
+                      <p className="text-xs text-[var(--muted-foreground)] mt-2 mb-1">Réf. client</p>
+                      <p className="font-medium">{quote.clientRef}</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -138,6 +144,7 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
                     <tr className="border-b bg-[var(--muted)]/50">
                       <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Description</th>
                       <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">Qté</th>
+                      <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Unité</th>
                       <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">Prix HT</th>
                       <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">TVA</th>
                       <th className="px-4 py-3 text-right font-medium text-[var(--muted-foreground)]">Rem.</th>
@@ -147,8 +154,12 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
                   <tbody className="divide-y">
                     {quote.items.map((item) => (
                       <tr key={item.id}>
-                        <td className="px-4 py-3">{item.description}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium">{item.description}</p>
+                          {item.notes && <p className="text-xs text-[var(--muted-foreground)] mt-0.5 italic">{item.notes}</p>}
+                        </td>
                         <td className="px-4 py-3 text-right">{item.quantity}</td>
+                        <td className="px-4 py-3 text-sm text-[var(--muted-foreground)]">{item.unit}</td>
                         <td className="px-4 py-3 text-right">{formatCurrency(item.unitPrice)}</td>
                         <td className="px-4 py-3 text-right">{item.vatRate}%</td>
                         <td className="px-4 py-3 text-right">{item.discount > 0 ? `${item.discount}%` : "—"}</td>

@@ -26,9 +26,22 @@ async function generateQuoteNumber(companyId: string) {
   return number;
 }
 
+type ItemInput = {
+  description: string;
+  notes?: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number;
+  discount: number;
+  unit?: string;
+  productId?: string;
+  sortOrder: number;
+};
+
 export async function createQuote(data: {
   title?: string;
   clientId: string;
+  clientRef?: string;
   issueDate: string;
   validUntil?: string;
   notes?: string;
@@ -36,31 +49,23 @@ export async function createQuote(data: {
   discount: number;
   discountType: "PERCENT" | "FIXED";
   templateId?: string;
-  items: Array<{
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    vatRate: number;
-    discount: number;
-    productId?: string;
-    sortOrder: number;
-  }>;
+  items: ItemInput[];
 }) {
   const companyId = await getCompanyId();
   const number = await generateQuoteNumber(companyId);
-
   const totals = calculateDocumentTotals(data.items, data.discount, data.discountType);
 
   const quote = await prisma.quote.create({
     data: {
       number,
-      title: data.title,
+      title: data.title || null,
       clientId: data.clientId,
+      clientRef: data.clientRef || null,
       companyId,
       issueDate: new Date(data.issueDate),
       validUntil: data.validUntil ? new Date(data.validUntil) : null,
-      notes: data.notes,
-      conditions: data.conditions,
+      notes: data.notes || null,
+      conditions: data.conditions || null,
       discount: data.discount,
       discountType: data.discountType,
       templateId: data.templateId || null,
@@ -71,14 +76,15 @@ export async function createQuote(data: {
       items: {
         create: data.items.map((item) => ({
           description: item.description,
+          notes: item.notes || null,
           quantity: item.quantity,
+          unit: item.unit || "unité",
           unitPrice: item.unitPrice,
           vatRate: item.vatRate,
           discount: item.discount,
           productId: item.productId || null,
           sortOrder: item.sortOrder,
-          total:
-            item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
+          total: item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
         })),
       },
     },
@@ -93,21 +99,14 @@ export async function updateQuote(
   data: {
     title?: string;
     clientId: string;
+    clientRef?: string;
     issueDate: string;
     validUntil?: string;
     notes?: string;
     conditions?: string;
     discount: number;
     discountType: "PERCENT" | "FIXED";
-    items: Array<{
-      description: string;
-      quantity: number;
-      unitPrice: number;
-      vatRate: number;
-      discount: number;
-      productId?: string;
-      sortOrder: number;
-    }>;
+    items: ItemInput[];
   }
 ) {
   const companyId = await getCompanyId();
@@ -118,12 +117,13 @@ export async function updateQuote(
   await prisma.quote.update({
     where: { id, companyId },
     data: {
-      title: data.title,
+      title: data.title || null,
       clientId: data.clientId,
+      clientRef: data.clientRef || null,
       issueDate: new Date(data.issueDate),
       validUntil: data.validUntil ? new Date(data.validUntil) : null,
-      notes: data.notes,
-      conditions: data.conditions,
+      notes: data.notes || null,
+      conditions: data.conditions || null,
       discount: data.discount,
       discountType: data.discountType,
       subtotal: totals.subtotal,
@@ -132,14 +132,15 @@ export async function updateQuote(
       items: {
         create: data.items.map((item) => ({
           description: item.description,
+          notes: item.notes || null,
           quantity: item.quantity,
+          unit: item.unit || "unité",
           unitPrice: item.unitPrice,
           vatRate: item.vatRate,
           discount: item.discount,
           productId: item.productId || null,
           sortOrder: item.sortOrder,
-          total:
-            item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
+          total: item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
         })),
       },
     },
@@ -190,6 +191,7 @@ export async function convertQuoteToInvoice(quoteId: string) {
       number: invoiceNumber,
       title: quote.title,
       clientId: quote.clientId,
+      clientRef: quote.clientRef,
       companyId,
       quoteId: quote.id,
       issueDate: new Date(),
@@ -205,7 +207,9 @@ export async function convertQuoteToInvoice(quoteId: string) {
       items: {
         create: quote.items.map((item) => ({
           description: item.description,
+          notes: item.notes,
           quantity: item.quantity,
+          unit: item.unit,
           unitPrice: item.unitPrice,
           vatRate: item.vatRate,
           discount: item.discount,
