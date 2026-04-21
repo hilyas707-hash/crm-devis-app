@@ -355,35 +355,34 @@ export function QuotePDFDocument({
     },
     noteText: { fontSize: 8, color: "#475569", lineHeight: 1.6 },
 
-    // ── Bloc conditions + signature (jamais séparés) ───────────────────────────
-    condSigBlock: { marginTop: 8 },
+    // ── Bloc banque + conditions + signature (toujours ensemble) ─────────────
+    condSigBlock: { marginTop: 16 },
 
     // ── Signature ─────────────────────────────────────────────────────────────
     sigSection: {
       flexDirection: "row",
       gap: 14,
-      marginTop: 18,
-      marginHorizontal: 2,
+      marginTop: 16,
     },
     sigBox: {
       flex: 1,
       border: `1px solid ${BORDER}`,
       borderRadius: 4,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      minHeight: 65,
+      paddingHorizontal: 14,
+      paddingTop: 10,
+      paddingBottom: 14,
+      minHeight: 72,
     },
     sigLabel: {
       fontSize: 7.5, fontFamily: bold, color: c,
-      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3,
+      textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
     },
-    sigSub: { fontSize: 7, color: GRAY, marginBottom: 18 },
-    sigLine: { borderBottom: `1px solid ${BORDER}`, marginTop: 10 },
-    sigLineLabel: { fontSize: 7, color: "#94a3b8", marginTop: 3 },
+    sigSub: { fontSize: 7, color: GRAY, marginBottom: 22 },
+    sigLine: { borderBottom: `1px solid ${BORDER}` },
+    sigLineLabel: { fontSize: 7, color: "#94a3b8", marginTop: 4 },
 
     // ── Bank ──────────────────────────────────────────────────────────────────
     bankBox: {
-      marginTop: 14,
       flexDirection: "row",
       gap: 24,
       backgroundColor: hex(c, 0.05),
@@ -562,79 +561,117 @@ export function QuotePDFDocument({
           </View>
         )}
 
-        {/* ══ TABLE ═══════════════════════════════════════════════════════════ */}
+        {/* ══ TABLE ═══════════════════════════════════════════════════════════
+             Règle 1 : en-tête + 1re ligne = bloc inséparable
+             Règle 2 : chaque ligne intermédiaire = wrap={false}
+             Règle 3 : dernière ligne + totaux = bloc inséparable        ══ */}
 
-        {/* Header */}
-        <View style={s.thead}>
-          <Text style={[s.th, s.cDesc]}>Désignation</Text>
-          <Text style={[s.th, s.cQty]}>Qté</Text>
-          <Text style={[s.th, s.cUnit]}>Unité</Text>
-          <Text style={[s.th, s.cPrice]}>Prix HT</Text>
-          <Text style={[s.th, s.cVat]}>TVA</Text>
-          {showDisc && <Text style={[s.th, s.cDisc]}>Rem.</Text>}
-          <Text style={[s.th, s.cTotal]}>Total TTC</Text>
-        </View>
-
-        {/* Rows */}
-        {data.items.map((item, idx) => (
-          <View key={idx} style={[s.trow, idx % 2 === 1 ? s.trowAlt : {}]} wrap={false}>
-            <View style={s.cDesc}>
-              <Text style={s.tdMain}>{item.description}</Text>
-              {item.notes ? <Text style={s.tdSub}>{item.notes}</Text> : null}
-            </View>
-            <Text style={[s.tdNum, s.cQty]}>
-              {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}
-            </Text>
-            <Text style={[s.tdNum, s.cUnit]}>{item.unit || "unité"}</Text>
-            <Text style={[s.tdNum, s.cPrice]}>{fmt(item.unitPrice)}</Text>
-            <Text style={[s.tdNum, s.cVat]}>{item.vatRate} %</Text>
-            {showDisc && (
-              <Text style={[s.tdNum, s.cDisc]}>
-                {item.discount > 0 ? `${item.discount} %` : "—"}
-              </Text>
-            )}
-            <Text style={[s.tdBold, s.cTotal]}>{fmt(item.total)}</Text>
-          </View>
-        ))}
-
-        {/* ══ TOTALS ══════════════════════════════════════════════════════════ */}
-        <View style={s.totalsSection}>
-          <View style={s.totalsCard}>
-            <View style={s.totRow}>
-              <Text style={s.totLabel}>Sous-total HT</Text>
-              <Text style={s.totValue}>{fmt(data.subtotal)}</Text>
-            </View>
-
-            {vatEntries.length > 0
-              ? vatEntries.map(([rate, amount]) => (
-                <View key={rate} style={s.totRow}>
-                  <Text style={s.totLabel}>TVA {rate} %</Text>
-                  <Text style={s.totValue}>{fmt(amount)}</Text>
-                </View>
-              ))
-              : (
-                <View style={s.totRow}>
-                  <Text style={s.totLabel}>TVA</Text>
-                  <Text style={s.totValue}>{fmt(data.vatAmount)}</Text>
-                </View>
-              )
-            }
-
-            {data.discount > 0 && (
-              <View style={s.totRowLast}>
-                <Text style={s.totDiscLabel}>Remise</Text>
-                <Text style={s.totDiscValue}>− {fmt(data.discount)}</Text>
+        {data.items.length > 0 && (() => {
+          const renderRow = (item: typeof data.items[0], idx: number) => (
+            <View style={[s.trow, idx % 2 === 1 ? s.trowAlt : {}]}>
+              <View style={s.cDesc}>
+                <Text style={s.tdMain}>{item.description}</Text>
+                {item.notes ? <Text style={s.tdSub}>{item.notes}</Text> : null}
               </View>
-            )}
-
-            <View style={s.totalFinal}>
-              <Text style={s.totalFinalLabel}>Total TTC</Text>
-              <Text style={s.totalFinalValue}>{fmt(data.total)}</Text>
+              <Text style={[s.tdNum, s.cQty]}>
+                {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}
+              </Text>
+              <Text style={[s.tdNum, s.cUnit]}>{item.unit || "unité"}</Text>
+              <Text style={[s.tdNum, s.cPrice]}>{fmt(item.unitPrice)}</Text>
+              <Text style={[s.tdNum, s.cVat]}>{item.vatRate} %</Text>
+              {showDisc && (
+                <Text style={[s.tdNum, s.cDisc]}>
+                  {item.discount > 0 ? `${item.discount} %` : "—"}
+                </Text>
+              )}
+              <Text style={[s.tdBold, s.cTotal]}>{fmt(item.total)}</Text>
             </View>
-          </View>
-        </View>
+          );
 
-        {/* ══ NOTES (seules, peuvent être sur une page précédente) ═══════════ */}
+          const thead = (
+            <View style={s.thead}>
+              <Text style={[s.th, s.cDesc]}>Désignation</Text>
+              <Text style={[s.th, s.cQty]}>Qté</Text>
+              <Text style={[s.th, s.cUnit]}>Unité</Text>
+              <Text style={[s.th, s.cPrice]}>Prix HT</Text>
+              <Text style={[s.th, s.cVat]}>TVA</Text>
+              {showDisc && <Text style={[s.th, s.cDisc]}>Rem.</Text>}
+              <Text style={[s.th, s.cTotal]}>Total TTC</Text>
+            </View>
+          );
+
+          const totalsCard = (
+            <View style={s.totalsSection}>
+              <View style={s.totalsCard}>
+                <View style={s.totRow}>
+                  <Text style={s.totLabel}>Sous-total HT</Text>
+                  <Text style={s.totValue}>{fmt(data.subtotal)}</Text>
+                </View>
+                {vatEntries.length > 0
+                  ? vatEntries.map(([rate, amount]) => (
+                    <View key={rate} style={s.totRow}>
+                      <Text style={s.totLabel}>TVA {rate} %</Text>
+                      <Text style={s.totValue}>{fmt(amount)}</Text>
+                    </View>
+                  ))
+                  : (
+                    <View style={s.totRow}>
+                      <Text style={s.totLabel}>TVA</Text>
+                      <Text style={s.totValue}>{fmt(data.vatAmount)}</Text>
+                    </View>
+                  )
+                }
+                {data.discount > 0 && (
+                  <View style={s.totRowLast}>
+                    <Text style={s.totDiscLabel}>Remise</Text>
+                    <Text style={s.totDiscValue}>− {fmt(data.discount)}</Text>
+                  </View>
+                )}
+                <View style={s.totalFinal}>
+                  <Text style={s.totalFinalLabel}>Total TTC</Text>
+                  <Text style={s.totalFinalValue}>{fmt(data.total)}</Text>
+                </View>
+              </View>
+            </View>
+          );
+
+          if (data.items.length === 1) {
+            // Une seule ligne : tout ensemble
+            return (
+              <View wrap={false}>
+                {thead}
+                {renderRow(data.items[0], 0)}
+                {totalsCard}
+              </View>
+            );
+          }
+
+          return (
+            <>
+              {/* En-tête + 1re ligne : inséparables */}
+              <View wrap={false}>
+                {thead}
+                {renderRow(data.items[0], 0)}
+              </View>
+
+              {/* Lignes intermédiaires : chacune inséparable */}
+              {data.items.slice(1, -1).map((item, i) => (
+                <View key={i + 1} wrap={false}>
+                  {renderRow(item, i + 1)}
+                </View>
+              ))}
+
+              {/* Dernière ligne + totaux : inséparables */}
+              <View wrap={false}>
+                {renderRow(data.items[data.items.length - 1], data.items.length - 1)}
+                {totalsCard}
+              </View>
+            </>
+          );
+        })()}
+
+        {/* ══ NOTES ═══════════════════════════════════════════════════════════
+             Séparées → peuvent rester sur la page précédente              ══ */}
         {data.notes && (
           <View style={s.noteBlock}>
             <View style={s.noteBox}>
@@ -644,21 +681,22 @@ export function QuotePDFDocument({
           </View>
         )}
 
-        {/* ══ BANK ════════════════════════════════════════════════════════════ */}
-        {template.showBank && (data.company.iban || data.company.bic) && (
-          <View style={s.bankBox}>
-            <View>
-              <Text style={s.bankLabel}>Coordonnées bancaires</Text>
-              {data.company.iban && <Text style={s.bankText}>IBAN : {data.company.iban}</Text>}
-              {data.company.bic && <Text style={s.bankText}>BIC / SWIFT : {data.company.bic}</Text>}
+        {/* ══ BANQUE + CONDITIONS + SIGNATURE ═════════════════════════════════
+             Règle absolue : jamais séparés, jamais la signature seule
+             Règle absolue : jamais en haut de page sans contexte          ══ */}
+        <View wrap={false} style={s.condSigBlock}>
+          {template.showBank && (data.company.iban || data.company.bic) && (
+            <View style={s.bankBox}>
+              <View>
+                <Text style={s.bankLabel}>Coordonnées bancaires</Text>
+                {data.company.iban && <Text style={s.bankText}>IBAN : {data.company.iban}</Text>}
+                {data.company.bic && <Text style={s.bankText}>BIC / SWIFT : {data.company.bic}</Text>}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* ══ CONDITIONS + SIGNATURE (toujours ensemble, jamais séparées) ════ */}
-        <View style={s.condSigBlock} wrap={false}>
           {data.conditions && (
-            <View style={s.noteBox}>
+            <View style={[s.noteBox, { marginTop: 12 }]}>
               <Text style={s.noteLabel}>Conditions de paiement</Text>
               <Text style={s.noteText}>{data.conditions}</Text>
             </View>
