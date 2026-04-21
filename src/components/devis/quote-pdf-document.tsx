@@ -46,6 +46,7 @@ export interface QuotePDFData {
   discountType?: string;
   total: number;
   items: {
+    type?: string | null;
     description: string;
     notes?: string | null;
     quantity: number;
@@ -104,14 +105,15 @@ export function QuotePDFDocument({
   const footerLine = template.footer
     || [data.company.name, data.company.vatNumber ? `TVA ${data.company.vatNumber}` : null].filter(Boolean).join("  ·  ");
 
-  const vatByRate = data.items.reduce((acc, item) => {
+  const lineItems = data.items.filter((i) => !i.type || i.type === "LINE");
+  const vatByRate = lineItems.reduce((acc, item) => {
     const ht = item.quantity * item.unitPrice * (1 - item.discount / 100);
     const k = `${item.vatRate}`;
     acc[k] = (acc[k] || 0) + ht * (item.vatRate / 100);
     return acc;
   }, {} as Record<string, number>);
   const vatEntries = Object.entries(vatByRate).filter(([, v]) => v > 0).sort(([a], [b]) => +a - +b);
-  const showDisc = data.items.some((i) => i.discount > 0);
+  const showDisc = lineItems.some((i) => i.discount > 0);
 
   let attachmentPages: { name: string; data: string }[] = [];
   try { if (template.attachments) attachmentPages = JSON.parse(template.attachments); } catch {}
@@ -290,6 +292,35 @@ export function QuotePDFDocument({
     tdSub: { fontSize: 7.5, color: GRAY, fontStyle: "italic", marginTop: 2, lineHeight: 1.4 },
     tdNum: { fontSize: 9, color: "#334155" },
     tdBold: { fontSize: 9, fontFamily: bold, color: DARK },
+
+    // special row types
+    trowSection: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: c,
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      marginTop: 4,
+    },
+    trowSectionText: { fontSize: 8.5, fontFamily: bold, color: "#fff" },
+    trowSubtotal: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      backgroundColor: "#f1f5f9",
+      borderTop: `1px solid ${BORDER}`,
+      borderBottom: `1px solid ${BORDER}`,
+    },
+    trowSubtotalLabel: { fontSize: 8, fontFamily: bold, color: GRAY },
+    trowSubtotalValue: { fontSize: 9, fontFamily: bold, color: DARK },
+    trowText: {
+      paddingVertical: 5,
+      paddingHorizontal: 8,
+      borderBottom: `1px solid #f0f4f8`,
+    },
+    trowTextContent: { fontSize: 8, color: GRAY, fontStyle: "italic", lineHeight: 1.5 },
 
     // col widths
     cDesc:  { flex: 3.4 },
@@ -567,26 +598,55 @@ export function QuotePDFDocument({
              Règle 3 : dernière ligne + totaux = bloc inséparable        ══ */}
 
         {data.items.length > 0 && (() => {
-          const renderRow = (item: typeof data.items[0], idx: number) => (
-            <View style={[s.trow, idx % 2 === 1 ? s.trowAlt : {}]}>
-              <View style={s.cDesc}>
-                <Text style={s.tdMain}>{item.description}</Text>
-                {item.notes ? <Text style={s.tdSub}>{item.notes}</Text> : null}
-              </View>
-              <Text style={[s.tdNum, s.cQty]}>
-                {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}
-              </Text>
-              <Text style={[s.tdNum, s.cUnit]}>{item.unit || "unité"}</Text>
-              <Text style={[s.tdNum, s.cPrice]}>{fmt(item.unitPrice)}</Text>
-              <Text style={[s.tdNum, s.cVat]}>{item.vatRate} %</Text>
-              {showDisc && (
-                <Text style={[s.tdNum, s.cDisc]}>
-                  {item.discount > 0 ? `${item.discount} %` : "—"}
+          // Track line-item index for alternating colors (only LINE rows)
+          let lineRowIdx = 0;
+
+          const renderRow = (item: typeof data.items[0], _idx: number) => {
+            if (item.type === "SECTION") {
+              return (
+                <View style={s.trowSection}>
+                  <Text style={s.trowSectionText}>{item.description}</Text>
+                </View>
+              );
+            }
+            if (item.type === "SUBTOTAL") {
+              return (
+                <View style={s.trowSubtotal}>
+                  <Text style={s.trowSubtotalLabel}>{item.description || "Sous-total"}</Text>
+                  <Text style={s.trowSubtotalValue}>{fmt(item.total)}</Text>
+                </View>
+              );
+            }
+            if (item.type === "TEXT") {
+              return (
+                <View style={s.trowText}>
+                  <Text style={s.trowTextContent}>{item.description}</Text>
+                </View>
+              );
+            }
+            // LINE
+            const rowStyle = lineRowIdx++ % 2 === 1 ? s.trowAlt : {};
+            return (
+              <View style={[s.trow, rowStyle]}>
+                <View style={s.cDesc}>
+                  <Text style={s.tdMain}>{item.description}</Text>
+                  {item.notes ? <Text style={s.tdSub}>{item.notes}</Text> : null}
+                </View>
+                <Text style={[s.tdNum, s.cQty]}>
+                  {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(2)}
                 </Text>
-              )}
-              <Text style={[s.tdBold, s.cTotal]}>{fmt(item.total)}</Text>
-            </View>
-          );
+                <Text style={[s.tdNum, s.cUnit]}>{item.unit || "unité"}</Text>
+                <Text style={[s.tdNum, s.cPrice]}>{fmt(item.unitPrice)}</Text>
+                <Text style={[s.tdNum, s.cVat]}>{item.vatRate} %</Text>
+                {showDisc && (
+                  <Text style={[s.tdNum, s.cDisc]}>
+                    {item.discount > 0 ? `${item.discount} %` : "—"}
+                  </Text>
+                )}
+                <Text style={[s.tdBold, s.cTotal]}>{fmt(item.total)}</Text>
+              </View>
+            );
+          };
 
           const thead = (
             <View style={s.thead}>

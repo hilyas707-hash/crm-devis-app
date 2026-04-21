@@ -58,6 +58,7 @@ export async function GET(
     discountType: quote.discountType,
     total: quote.total,
     items: quote.items.map((item) => ({
+      type: item.type,
       description: item.description,
       notes: item.notes,
       quantity: item.quantity,

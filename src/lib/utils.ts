@@ -40,15 +40,16 @@ export function calculateItemTotal(
 }
 
 export function calculateDocumentTotals(
-  items: { quantity: number; unitPrice: number; discount: number; vatRate: number }[],
+  items: { quantity: number; unitPrice: number; discount: number; vatRate: number; type?: string }[],
   documentDiscount: number,
   documentDiscountType: "PERCENT" | "FIXED"
 ): { subtotal: number; vatAmount: number; discount: number; total: number } {
-  const subtotal = items.reduce(
+  const lines = items.filter((i) => !i.type || i.type === "LINE");
+  const subtotal = lines.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice * (1 - item.discount / 100),
     0
   );
-  const vatAmount = items.reduce((sum, item) => {
+  const vatAmount = lines.reduce((sum, item) => {
     const base = item.quantity * item.unitPrice * (1 - item.discount / 100);
     return sum + base * (item.vatRate / 100);
   }, 0);

@@ -45,6 +45,7 @@ export default async function EditDevisPage({ params }: { params: Promise<{ id: 
     templateId: quote.templateId || undefined,
     items: quote.items.map((item) => ({
       id: item.id,
+      type: item.type,
       description: item.description,
       notes: item.notes || undefined,
       quantity: item.quantity,

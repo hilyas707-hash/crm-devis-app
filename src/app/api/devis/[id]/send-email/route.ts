@@ -66,8 +66,11 @@ export async function POST(
     discount: quote.discount,
     total: quote.total,
     items: quote.items.map((item) => ({
+      type: item.type,
       description: item.description,
+      notes: item.notes,
       quantity: item.quantity,
+      unit: item.unit,
       unitPrice: item.unitPrice,
       vatRate: item.vatRate,
       discount: item.discount,

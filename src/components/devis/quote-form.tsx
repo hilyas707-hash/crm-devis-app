@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   Trash2, Plus, Loader2, LayoutTemplate, Star, Check,
   ChevronUp, ChevronDown, Copy, Package, FileText, UserPlus,
+  Sigma, AlignLeft, Heading2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,9 +28,12 @@ interface TemplateSummary {
   vatRates: string; units: string; categories: string; currency: string;
 }
 
+type ItemType = "LINE" | "SECTION" | "SUBTOTAL" | "TEXT";
+
 interface LineItem {
   _key: string;
   id?: string;
+  type: ItemType;
   description: string;
   notes: string;
   quantity: number;
@@ -59,6 +63,7 @@ interface QuoteFormProps {
     discountType?: "PERCENT" | "FIXED";
     items?: Array<{
       id?: string;
+      type?: string;
       description: string;
       notes?: string;
       quantity: number;
@@ -77,6 +82,32 @@ interface QuoteFormProps {
 function newKey() { return Math.random().toString(36).slice(2); }
 function lineHT(item: LineItem) { return item.quantity * item.unitPrice * (1 - item.discount / 100); }
 function lineTTC(item: LineItem) { return lineHT(item) * (1 + item.vatRate / 100); }
+
+function computeSubtotals(items: LineItem[]): number[] {
+  // Returns for each item: the running TTC sum of LINE items above it (up to prev SUBTOTAL)
+  const result: number[] = [];
+  let running = 0;
+  for (const item of items) {
+    if (item.type === "LINE") running += lineTTC(item);
+    result.push(running);
+    if (item.type === "SUBTOTAL") running = 0;
+  }
+  return result;
+}
+
+function emptyLine(type: ItemType, lastVat = 21, lastUnit = "unité"): Omit<LineItem, "_key"> {
+  return {
+    type,
+    description: "",
+    notes: "",
+    quantity: type === "LINE" ? 1 : 0,
+    unitPrice: 0,
+    vatRate: lastVat,
+    discount: 0,
+    unit: lastUnit,
+    sortOrder: 0,
+  };
+}
 
 export function QuoteForm({
   clients, products, templates = [], action, defaultValues, cancelHref = "/devis",
@@ -101,10 +132,11 @@ export function QuoteForm({
       ? defaultValues.items.map((i) => ({
           ...i,
           _key: newKey(),
+          type: (i.type as ItemType) || "LINE",
           notes: i.notes || "",
           unit: i.unit || "unité",
         }))
-      : [{ _key: newKey(), description: "", notes: "", quantity: 1, unitPrice: 0, vatRate: 21, discount: 0, unit: "unité", sortOrder: 0 }]
+      : [{ _key: newKey(), type: "LINE" as ItemType, description: "", notes: "", quantity: 1, unitPrice: 0, vatRate: 21, discount: 0, unit: "unité", sortOrder: 0 }]
   );
 
   const availableUnits = selectedTemplate?.units
@@ -122,12 +154,14 @@ export function QuoteForm({
     if (tpl.autoConditions && tpl.conditions) setConditions(tpl.conditions);
   }
 
-  const addLine = () => {
-    const lastVat = items.length > 0 ? items[items.length - 1].vatRate : 21;
-    const lastUnit = items.length > 0 ? items[items.length - 1].unit : "unité";
+  const lastLine = items.filter((i) => i.type === "LINE").slice(-1)[0];
+  const lastVat = lastLine?.vatRate ?? 21;
+  const lastUnit = lastLine?.unit ?? "unité";
+
+  const addLine = (type: ItemType = "LINE") => {
     setItems((prev) => [
       ...prev,
-      { _key: newKey(), description: "", notes: "", quantity: 1, unitPrice: 0, vatRate: lastVat, discount: 0, unit: lastUnit, sortOrder: prev.length },
+      { _key: newKey(), ...emptyLine(type, lastVat, lastUnit), sortOrder: prev.length },
     ]);
   };
 
@@ -180,13 +214,14 @@ export function QuoteForm({
     });
   };
 
-  // Totals
-  const subtotal = items.reduce((s, i) => s + lineHT(i), 0);
-  const vatAmount = items.reduce((s, i) => s + lineHT(i) * (i.vatRate / 100), 0);
+  // Totals (LINE items only)
+  const lineItems = items.filter((i) => i.type === "LINE");
+  const subtotal = lineItems.reduce((s, i) => s + lineHT(i), 0);
+  const vatAmount = lineItems.reduce((s, i) => s + lineHT(i) * (i.vatRate / 100), 0);
   const discountAmount = discountType === "PERCENT" ? (subtotal * discountValue) / 100 : discountValue;
   const total = subtotal + vatAmount - discountAmount;
 
-  const vatByRate = items.reduce((acc, item) => {
+  const vatByRate = lineItems.reduce((acc, item) => {
     const base = lineHT(item);
     const key = `${item.vatRate}`;
     acc[key] = (acc[key] || 0) + base * (item.vatRate / 100);
@@ -195,6 +230,9 @@ export function QuoteForm({
   const vatEntries = Object.entries(vatByRate)
     .filter(([, v]) => v > 0)
     .sort(([a], [b]) => parseFloat(a) - parseFloat(b));
+
+  // Running subtotals for display
+  const subtotalAmounts = computeSubtotals(items);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -211,18 +249,29 @@ export function QuoteForm({
       discount: discountValue,
       discountType,
       templateId: selectedTemplate?.id || undefined,
-      items: items.map((item, i) => ({
-        id: item.id,
-        description: item.description,
-        notes: item.notes || undefined,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        vatRate: item.vatRate,
-        discount: item.discount,
-        unit: item.unit,
-        productId: item.productId,
-        sortOrder: i,
-      })),
+      items: (() => {
+        // Compute subtotal amounts before submitting
+        let running = 0;
+        return items.map((item, i) => {
+          if (item.type === "LINE") running += lineTTC(item);
+          const subtotalTotal = item.type === "SUBTOTAL" ? running : 0;
+          if (item.type === "SUBTOTAL") running = 0;
+          return {
+            id: item.id,
+            type: item.type,
+            description: item.description,
+            notes: item.notes || undefined,
+            quantity: item.type === "LINE" ? item.quantity : 0,
+            unitPrice: item.type === "LINE" ? item.unitPrice : 0,
+            vatRate: item.type === "LINE" ? item.vatRate : 0,
+            discount: item.type === "LINE" ? item.discount : 0,
+            unit: item.unit,
+            total: item.type === "SUBTOTAL" ? subtotalTotal : undefined,
+            productId: item.type === "LINE" ? item.productId : undefined,
+            sortOrder: i,
+          };
+        });
+      })(),
     };
     startTransition(() => action(data));
   }
@@ -365,195 +414,237 @@ export function QuoteForm({
 
       {/* Lignes du devis */}
       <Card className="shadow-sm">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm font-semibold">
-            Lignes du devis
+            Tableau du devis
             <span className="ml-2 text-xs font-normal text-[var(--muted-foreground)]">
-              {items.length} ligne{items.length !== 1 ? "s" : ""}
+              {lineItems.length} poste{lineItems.length !== 1 ? "s" : ""}
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 pt-0">
-
-          {/* En-têtes colonnes desktop */}
-          <div className="hidden lg:grid lg:grid-cols-[1fr_72px_96px_88px_72px_72px_88px_72px] gap-2 text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wide px-3 pb-1 border-b border-[var(--border)]">
-            <div>Description</div>
-            <div className="text-center">Qté</div>
-            <div>Unité</div>
-            <div className="text-right">Prix HT</div>
-            <div className="text-center">TVA</div>
-            <div className="text-center">Rem.%</div>
-            <div className="text-right">Total TTC</div>
-            <div />
-          </div>
+        <CardContent className="space-y-2 pt-0">
 
           {/* Lignes */}
-          {items.map((item, idx) => (
-            <div key={item._key} className="rounded-xl border border-[var(--border)] bg-white overflow-hidden">
-
-              {/* Barre de contrôle */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--muted)]/50 border-b border-[var(--border)]">
-                <span className="text-[10px] font-bold text-[var(--muted-foreground)] w-4 shrink-0 text-center">
-                  {idx + 1}
-                </span>
-
-                {/* Sélecteur produit */}
-                {products.length > 0 && (
-                  <Select onValueChange={(v) => selectProduct(item._key, v)}>
-                    <SelectTrigger className="h-7 text-xs flex-1 max-w-[260px] bg-white/80 shadow-sm">
-                      <Package className="h-3 w-3 mr-1 text-[var(--muted-foreground)] shrink-0" />
-                      <SelectValue placeholder="Choisir du catalogue…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-medium truncate">{p.name}</span>
-                            <span className="text-[10px] text-[var(--muted-foreground)] shrink-0">
-                              {formatCurrency(p.unitPrice)}/{p.unit}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          {items.map((item, idx) => {
+            const rowControls = (
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button type="button" onClick={() => moveLine(item._key, -1)} disabled={idx === 0} title="Monter"
+                  className="h-6 w-6 rounded flex items-center justify-center hover:bg-black/10 disabled:opacity-25 transition-colors">
+                  <ChevronUp className="h-3 w-3" />
+                </button>
+                <button type="button" onClick={() => moveLine(item._key, 1)} disabled={idx === items.length - 1} title="Descendre"
+                  className="h-6 w-6 rounded flex items-center justify-center hover:bg-black/10 disabled:opacity-25 transition-colors">
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                {items.length > 1 && (
+                  <button type="button" onClick={() => removeLine(item._key)} title="Supprimer"
+                    className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 )}
-
-                {/* Actions */}
-                <div className="ml-auto flex items-center gap-0.5 shrink-0">
-                  <button type="button" onClick={() => toggleNotes(item._key)} title="Notes / détails"
-                    className={`h-6 w-6 rounded flex items-center justify-center transition-colors ${
-                      expandedNotes.has(item._key)
-                        ? "bg-blue-100 text-blue-600"
-                        : "hover:bg-[var(--muted)] text-[var(--muted-foreground)]"
-                    }`}>
-                    <FileText className="h-3 w-3" />
-                  </button>
-                  <button type="button" onClick={() => moveLine(item._key, -1)} disabled={idx === 0} title="Monter"
-                    className="h-6 w-6 rounded flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)] disabled:opacity-25 transition-colors">
-                    <ChevronUp className="h-3 w-3" />
-                  </button>
-                  <button type="button" onClick={() => moveLine(item._key, 1)} disabled={idx === items.length - 1} title="Descendre"
-                    className="h-6 w-6 rounded flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)] disabled:opacity-25 transition-colors">
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                  <button type="button" onClick={() => duplicateLine(item._key)} title="Dupliquer"
-                    className="h-6 w-6 rounded flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors">
-                    <Copy className="h-3 w-3" />
-                  </button>
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => removeLine(item._key)} title="Supprimer"
-                      className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-50 text-[var(--muted-foreground)] hover:text-red-500 transition-colors">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
               </div>
+            );
 
-              {/* Champs */}
-              <div className="p-3 space-y-2">
-                {/* Description */}
+            /* ── SECTION ── */
+            if (item.type === "SECTION") return (
+              <div key={item._key} className="flex items-center gap-2 rounded-lg bg-[var(--primary)]/8 border border-[var(--primary)]/20 px-3 py-2">
+                <Heading2 className="h-4 w-4 text-[var(--primary)] shrink-0" />
                 <Input
                   value={item.description}
                   onChange={(e) => updateLine(item._key, "description", e.target.value)}
-                  placeholder="Description de la prestation ou du produit…"
-                  required
-                  className="h-9 font-medium border-0 border-b rounded-none bg-transparent px-0 focus-visible:ring-0 focus-visible:border-[var(--primary)] text-sm"
+                  placeholder="Titre de section…"
+                  className="flex-1 h-8 font-semibold text-[var(--primary)] border-0 bg-transparent px-0 focus-visible:ring-0 text-sm"
                 />
+                {rowControls}
+              </div>
+            );
 
-                {/* Notes dépliables */}
-                {expandedNotes.has(item._key) && (
-                  <Textarea
-                    value={item.notes}
-                    onChange={(e) => updateLine(item._key, "notes", e.target.value)}
-                    placeholder="Détails, spécifications techniques, informations complémentaires…"
-                    rows={2}
-                    className="text-xs text-[var(--muted-foreground)] resize-none border-dashed"
+            /* ── SUBTOTAL ── */
+            if (item.type === "SUBTOTAL") return (
+              <div key={item._key} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Sigma className="h-4 w-4 text-slate-500 shrink-0" />
+                  <Input
+                    value={item.description}
+                    onChange={(e) => updateLine(item._key, "description", e.target.value)}
+                    placeholder="Sous-total…"
+                    className="w-40 h-7 text-xs border-0 bg-transparent px-0 focus-visible:ring-0 text-slate-600"
                   />
-                )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold tabular-nums text-slate-700">
+                    {formatCurrency(subtotalAmounts[idx])}
+                  </span>
+                  {rowControls}
+                </div>
+              </div>
+            );
 
-                {/* Champs numériques */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[72px_96px_88px_72px_72px_1fr] gap-2 items-end">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Quantité</label>
-                    <Input
-                      type="number" min="0" step="0.01"
-                      value={item.quantity}
-                      onChange={(e) => updateLine(item._key, "quantity", parseFloat(e.target.value) || 0)}
-                      className="h-8 text-sm text-center"
+            /* ── TEXT ── */
+            if (item.type === "TEXT") return (
+              <div key={item._key} className="flex items-start gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--muted)]/30 px-3 py-2">
+                <AlignLeft className="h-4 w-4 text-[var(--muted-foreground)] shrink-0 mt-1.5" />
+                <Textarea
+                  value={item.description}
+                  onChange={(e) => updateLine(item._key, "description", e.target.value)}
+                  placeholder="Texte libre (remarque, commentaire, clause…)"
+                  rows={2}
+                  className="flex-1 text-sm text-[var(--muted-foreground)] border-0 bg-transparent px-0 focus-visible:ring-0 resize-none"
+                />
+                {rowControls}
+              </div>
+            );
+
+            /* ── LINE (default) ── */
+            return (
+              <div key={item._key} className="rounded-xl border border-[var(--border)] bg-white overflow-hidden">
+                {/* Barre de contrôle */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--muted)]/40 border-b border-[var(--border)]">
+                  <span className="text-[10px] font-bold text-[var(--muted-foreground)] w-4 shrink-0 text-center">
+                    {lineItems.indexOf(item) + 1}
+                  </span>
+                  {products.length > 0 && (
+                    <Select onValueChange={(v) => selectProduct(item._key, v)}>
+                      <SelectTrigger className="h-7 text-xs flex-1 max-w-[260px] bg-white/80 shadow-sm">
+                        <Package className="h-3 w-3 mr-1 text-[var(--muted-foreground)] shrink-0" />
+                        <SelectValue placeholder="Choisir du catalogue…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            <span className="font-medium">{p.name}</span>
+                            <span className="ml-2 text-[10px] text-[var(--muted-foreground)]">
+                              {formatCurrency(p.unitPrice)}/{p.unit}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <div className="ml-auto flex items-center gap-0.5 shrink-0">
+                    <button type="button" onClick={() => toggleNotes(item._key)} title="Notes"
+                      className={`h-6 w-6 rounded flex items-center justify-center transition-colors ${
+                        expandedNotes.has(item._key) ? "bg-blue-100 text-blue-600" : "hover:bg-[var(--muted)] text-[var(--muted-foreground)]"
+                      }`}>
+                      <FileText className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={() => moveLine(item._key, -1)} disabled={idx === 0} title="Monter"
+                      className="h-6 w-6 rounded flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)] disabled:opacity-25 transition-colors">
+                      <ChevronUp className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={() => moveLine(item._key, 1)} disabled={idx === items.length - 1} title="Descendre"
+                      className="h-6 w-6 rounded flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)] disabled:opacity-25 transition-colors">
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                    <button type="button" onClick={() => duplicateLine(item._key)} title="Dupliquer"
+                      className="h-6 w-6 rounded flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors">
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    {items.length > 1 && (
+                      <button type="button" onClick={() => removeLine(item._key)} title="Supprimer"
+                        className="h-6 w-6 rounded flex items-center justify-center hover:bg-red-50 text-[var(--muted-foreground)] hover:text-red-500 transition-colors">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Champs */}
+                <div className="p-3 space-y-2">
+                  <Input
+                    value={item.description}
+                    onChange={(e) => updateLine(item._key, "description", e.target.value)}
+                    placeholder="Description de la prestation ou du produit…"
+                    required
+                    className="h-9 font-medium border-0 border-b rounded-none bg-transparent px-0 focus-visible:ring-0 focus-visible:border-[var(--primary)] text-sm"
+                  />
+                  {expandedNotes.has(item._key) && (
+                    <Textarea
+                      value={item.notes}
+                      onChange={(e) => updateLine(item._key, "notes", e.target.value)}
+                      placeholder="Détails, spécifications…"
+                      rows={2}
+                      className="text-xs text-[var(--muted-foreground)] resize-none border-dashed"
                     />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Unité</label>
-                    <Select value={item.unit} onValueChange={(v) => updateLine(item._key, "unit", v)}>
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableUnits.map((u) => (
-                          <SelectItem key={u} value={u}>{u}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Prix HT</label>
-                    <div className="relative">
-                      <Input
-                        type="number" min="0" step="0.01"
-                        value={item.unitPrice}
-                        onChange={(e) => updateLine(item._key, "unitPrice", parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm pr-5"
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--muted-foreground)] pointer-events-none">{currency}</span>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[72px_96px_88px_72px_72px_1fr] gap-2 items-end">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Quantité</label>
+                      <Input type="number" min="0" step="0.01" value={item.quantity}
+                        onChange={(e) => updateLine(item._key, "quantity", parseFloat(e.target.value) || 0)}
+                        className="h-8 text-sm text-center" />
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">TVA</label>
-                    <Select value={String(item.vatRate)} onValueChange={(v) => updateLine(item._key, "vatRate", parseFloat(v))}>
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableVatRates.map((r) => (
-                          <SelectItem key={r} value={String(r)}>{r}%</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Rem.%</label>
-                    <div className="relative">
-                      <Input
-                        type="number" min="0" max="100" step="0.01"
-                        value={item.discount}
-                        onChange={(e) => updateLine(item._key, "discount", parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm pr-5"
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--muted-foreground)] pointer-events-none">%</span>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Unité</label>
+                      <Select value={item.unit} onValueChange={(v) => updateLine(item._key, "unit", v)}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {availableUnits.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
-
-                  {/* Total ligne */}
-                  <div className="flex items-end justify-end pb-0.5">
-                    <div className="text-right">
-                      <p className="text-base font-bold text-[var(--foreground)]">{formatCurrency(lineTTC(item))}</p>
-                      {item.discount > 0 && (
-                        <p className="text-[10px] text-emerald-600">−{item.discount}% appliqué</p>
-                      )}
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Prix HT</label>
+                      <div className="relative">
+                        <Input type="number" min="0" step="0.01" value={item.unitPrice}
+                          onChange={(e) => updateLine(item._key, "unitPrice", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm pr-5" />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--muted-foreground)] pointer-events-none">{currency}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">TVA</label>
+                      <Select value={String(item.vatRate)} onValueChange={(v) => updateLine(item._key, "vatRate", parseFloat(v))}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {availableVatRates.map((r) => <SelectItem key={r} value={String(r)}>{r}%</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-[var(--muted-foreground)] font-medium uppercase tracking-wide">Rem.%</label>
+                      <div className="relative">
+                        <Input type="number" min="0" max="100" step="0.01" value={item.discount}
+                          onChange={(e) => updateLine(item._key, "discount", parseFloat(e.target.value) || 0)}
+                          className="h-8 text-sm pr-5" />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--muted-foreground)] pointer-events-none">%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-end justify-end pb-0.5">
+                      <div className="text-right">
+                        <p className="text-base font-bold">{formatCurrency(lineTTC(item))}</p>
+                        {item.discount > 0 && <p className="text-[10px] text-emerald-600">−{item.discount}% appliqué</p>}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
-          {/* Bouton ajout */}
-          <button type="button" onClick={addLine}
-            className="w-full border-2 border-dashed border-[var(--border)] rounded-xl py-3 text-sm text-[var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all flex items-center justify-center gap-2 group">
-            <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
-            Ajouter une ligne
-          </button>
+          {/* Boutons d'ajout */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="button" onClick={() => addLine("LINE")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all group">
+              <Plus className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+              Ligne
+            </button>
+            <button type="button" onClick={() => addLine("SECTION")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all group">
+              <Heading2 className="h-3.5 w-3.5" />
+              Section
+            </button>
+            <button type="button" onClick={() => addLine("SUBTOTAL")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all group">
+              <Sigma className="h-3.5 w-3.5" />
+              Sous-total
+            </button>
+            <button type="button" onClick={() => addLine("TEXT")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border-2 border-dashed border-[var(--border)] text-sm text-[var(--muted-foreground)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all group">
+              <AlignLeft className="h-3.5 w-3.5" />
+              Texte libre
+            </button>
+          </div>
 
           {/* Récapitulatif */}
           <div className="flex justify-end pt-2">

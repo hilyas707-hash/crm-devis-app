@@ -17,6 +17,7 @@ async function generateQuoteNumber(companyId: string): Promise<string> {
 }
 
 type ItemInput = {
+  type?: string;
   description: string;
   notes?: string;
   quantity: number;
@@ -24,6 +25,7 @@ type ItemInput = {
   vatRate: number;
   discount: number;
   unit?: string;
+  total?: number;
   productId?: string;
   sortOrder: number;
 };
@@ -72,6 +74,7 @@ export async function createQuote(data: {
       status: "DRAFT",
       items: {
         create: data.items.map((item) => ({
+          type: item.type || "LINE",
           description: item.description,
           notes: item.notes || null,
           quantity: item.quantity,
@@ -81,7 +84,9 @@ export async function createQuote(data: {
           discount: item.discount,
           productId: item.productId || null,
           sortOrder: item.sortOrder,
-          total: item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
+          total: item.type && item.type !== "LINE"
+            ? (item.total ?? 0)
+            : item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
         })),
       },
     },
@@ -136,6 +141,7 @@ export async function updateQuote(
         total: totals.total,
         items: {
           create: data.items.map((item) => ({
+            type: item.type || "LINE",
             description: item.description,
             notes: item.notes || null,
             quantity: item.quantity,
@@ -145,7 +151,9 @@ export async function updateQuote(
             discount: item.discount,
             productId: item.productId || null,
             sortOrder: item.sortOrder,
-            total: item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
+            total: item.type && item.type !== "LINE"
+              ? (item.total ?? 0)
+              : item.quantity * item.unitPrice * (1 - item.discount / 100) * (1 + item.vatRate / 100),
           })),
         },
       },

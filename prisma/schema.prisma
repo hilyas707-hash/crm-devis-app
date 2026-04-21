@@ -262,6 +262,7 @@ model Quote {
 
 model QuoteItem {
   id          String   @id @default(cuid())
+  type        String   @default("LINE")
   description String
   notes       String?
   quantity    Float    @default(1)
